@@ -1,7 +1,7 @@
 'use client'
 
 import { DiscoveryEngineResponse } from '@/lib/discoveryEngine'
-import { formatAnswerText, extractCitations } from '@/lib/discoveryEngine'
+import { formatAnswerText, extractCitations, createComprehensiveSpiritualResponse } from '@/lib/discoveryEngine'
 import { BookOpen, ExternalLink, AlertCircle } from 'lucide-react'
 
 interface AIResponseProps {
@@ -74,7 +74,9 @@ export default function AIResponse({ response, isLoading, error }: AIResponsePro
     )
   }
 
-  const formattedText = formatAnswerText(answer.answerText)
+  // Create comprehensive spiritual response combining answerText and reference content
+  const comprehensiveText = createComprehensiveSpiritualResponse(response)
+  const formattedText = formatAnswerText(comprehensiveText)
   const citations = extractCitations(answer.answerText, answer.citations)
 
   return (
@@ -89,7 +91,7 @@ export default function AIResponse({ response, isLoading, error }: AIResponsePro
             Spiritual Guidance
           </h3>
           <p className="text-sm text-spiritual-600">
-            AI-powered wisdom from spiritual texts
+            Synthesized wisdom from sacred texts via Answer API
           </p>
         </div>
       </div>
@@ -97,7 +99,8 @@ export default function AIResponse({ response, isLoading, error }: AIResponsePro
       {/* Answer Text */}
       <div className="mb-6">
         <div className="text-xs text-spiritual-500 mb-2">
-          Response length: {answer.answerText?.length || 0} characters | 
+          Answer API response: {comprehensiveText.length} characters | 
+          Synthesized answer: {answer.answerText?.length || 0} characters | 
           Citations: {answer.citations?.length || 0} | 
           References: {answer.references?.length || 0}
         </div>

@@ -118,7 +118,8 @@ yarn install
    GOOGLE_CLOUD_PROJECT_ID=your-project-id
    GOOGLE_CLOUD_CLIENT_EMAIL=your-service-account@your-project.iam.gserviceaccount.com
    GOOGLE_CLOUD_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYour Private Key Here\n-----END PRIVATE KEY-----\n"
-   GOOGLE_DISCOVERY_ENGINE_ENDPOINT=https://discoveryengine.googleapis.com/v1alpha/projects/your-project/locations/global/collections/default_collection/engines/your-engine/servingConfigs/default_search:answer
+   # Answer API endpoint (uses :answer suffix for synthesized responses)
+   GOOGLE_DISCOVERY_ENGINE_ENDPOINT=https://discoveryengine.googleapis.com/v1alpha/projects/516647012587/locations/global/collections/default_collection/engines/mygurukul_1755255323297/servingConfigs/default_search:answer
    ```
 
 4. Run the development server:
@@ -160,11 +161,12 @@ typography: {
 
 ## 🌐 API Integration
 
-### Google Discovery Engine
+### Google Discovery Engine Answer API
 - **Authentication**: Service account credentials via environment variables
-- **Endpoint**: Configurable via `GOOGLE_DISCOVERY_ENGINE_ENDPOINT`
-- **Response Format**: Structured answers with citations and references
+- **Endpoint**: Answer API endpoint via `GOOGLE_DISCOVERY_ENGINE_ENDPOINT` (uses `:answer` suffix)
+- **Response Format**: Synthesized, conversational spiritual responses with citations and references
 - **Error Handling**: Comprehensive error handling with user-friendly messages
+- **API Type**: Answer API (not Search API) for compassionate, flowing spiritual guidance
 
 ### API Response Structure
 ```typescript
