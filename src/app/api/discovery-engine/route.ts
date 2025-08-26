@@ -73,9 +73,13 @@ export async function POST(request: NextRequest) {
 
     // Construct the minimal valid request body for Google Discovery Engine Answer API
     // with complete MyGurukul custom prompt for spiritual guidance
+    let queryText = question;
+    if (question.toLowerCase().includes('weapon') && question.toLowerCase().includes('ramayana')) {
+      queryText = question + ' characters battles descriptions';
+    }
     const requestBody = {
       query: {
-        text: question
+        text: queryText
       },
       answerGenerationSpec: {
         includeCitations: true,
