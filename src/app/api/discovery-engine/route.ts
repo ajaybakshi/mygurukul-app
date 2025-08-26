@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
     if (question.toLowerCase().includes('weapon') && question.toLowerCase().includes('ramayana')) {
       queryText = question + ' characters battles descriptions';
     }
+    if (question.length > 5) { queryText += ' characters themes places context sections'; }
     const requestBody = {
       query: {
         text: queryText
