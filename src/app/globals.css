@@ -28,6 +28,13 @@ body {
     rgb(var(--background-start-rgb));
   font-family: 'Inter', sans-serif;
   line-height: 1.6;
+  /* Premium spiritual background pattern */
+  background-image: 
+    radial-gradient(circle at 25% 25%, rgba(212, 175, 55, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(139, 69, 19, 0.02) 0%, transparent 50%),
+    linear-gradient(45deg, rgba(212, 175, 55, 0.01) 25%, transparent 25%, transparent 75%, rgba(212, 175, 55, 0.01) 75%);
+  background-size: 100px 100px, 150px 150px, 20px 20px;
+  background-position: 0 0, 0 0, 0 0;
 }
 
 @layer components {
@@ -35,14 +42,33 @@ body {
     background: linear-gradient(135deg, #D4AF37 0%, #8B4513 100%);
   }
   
+  /* Premium card shadows with spiritual theme */
   .card-shadow {
-    box-shadow: 0 4px 6px -1px rgba(139, 69, 19, 0.1), 0 2px 4px -1px rgba(139, 69, 19, 0.06);
+    box-shadow: 
+      0 4px 6px -1px rgba(139, 69, 19, 0.1), 
+      0 2px 4px -1px rgba(139, 69, 19, 0.06),
+      0 0 0 1px rgba(212, 175, 55, 0.05);
+  }
+  
+  .card-shadow-hover {
+    box-shadow: 
+      0 10px 25px -3px rgba(139, 69, 19, 0.15), 
+      0 4px 6px -2px rgba(139, 69, 19, 0.08),
+      0 0 0 1px rgba(212, 175, 55, 0.1);
+  }
+  
+  .premium-shadow {
+    box-shadow: 
+      0 20px 25px -5px rgba(139, 69, 19, 0.1), 
+      0 10px 10px -5px rgba(139, 69, 19, 0.04),
+      0 0 0 1px rgba(212, 175, 55, 0.08);
   }
   
   .bottom-nav {
     backdrop-filter: blur(10px);
     background-color: rgba(255, 255, 255, 0.95);
     border-top: 1px solid rgba(212, 175, 55, 0.2);
+    box-shadow: 0 -4px 6px -1px rgba(139, 69, 19, 0.1);
   }
   
   .line-clamp-2 {
@@ -71,6 +97,82 @@ body {
   .placeholder-dark::placeholder {
     color: #6b7280;
     opacity: 1;
+  }
+
+  /* Screen reader only utility */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Premium typography scale */
+  .text-premium-sm {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    font-weight: 500;
+  }
+  
+  .text-premium-base {
+    font-size: 1rem;
+    line-height: 1.6;
+    font-weight: 400;
+  }
+  
+  .text-premium-lg {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    font-weight: 500;
+  }
+  
+  .text-premium-xl {
+    font-size: 1.25rem;
+    line-height: 1.5;
+    font-weight: 600;
+  }
+  
+  .text-premium-2xl {
+    font-size: 1.5rem;
+    line-height: 1.4;
+    font-weight: 700;
+  }
+  
+  .text-premium-3xl {
+    font-size: 1.875rem;
+    line-height: 1.3;
+    font-weight: 700;
+  }
+
+  /* Premium spacing utilities */
+  .space-premium-xs { margin: 0.25rem; }
+  .space-premium-sm { margin: 0.5rem; }
+  .space-premium-md { margin: 1rem; }
+  .space-premium-lg { margin: 1.5rem; }
+  .space-premium-xl { margin: 2rem; }
+  .space-premium-2xl { margin: 3rem; }
+
+  /* Premium borders */
+  .border-premium {
+    border: 1px solid rgba(212, 175, 55, 0.15);
+  }
+  
+  .border-premium-hover {
+    border: 1px solid rgba(212, 175, 55, 0.25);
+  }
+  
+  /* Premium background gradients */
+  .bg-premium-gradient {
+    background: linear-gradient(135deg, rgba(253, 248, 225, 0.8) 0%, rgba(255, 255, 255, 0.9) 100%);
+  }
+  
+  .bg-premium-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(253, 248, 225, 0.05) 100%);
   }
 }
 

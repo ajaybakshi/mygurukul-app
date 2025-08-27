@@ -14,6 +14,7 @@ export default function SubmitPage() {
   const [aiResponse, setAiResponse] = useState<DiscoveryEngineResponse | null>(null)
   const [isLoadingAI, setIsLoadingAI] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,109 +42,136 @@ export default function SubmitPage() {
     }
   }
 
+  // Enhanced Category Dropdown Component
+  const CategoryDropdown = () => {
+    const categories = [
+      { value: 'dharmic', label: '🕉️ Dharmic Wisdom & Guidance' },
+      { value: 'meditation', label: '🧘 Meditation & Inner Peace' },
+      { value: 'dharma', label: '⚖️ Dharma & Ethical Living' },
+      { value: 'relationships', label: '💕 Sacred Relationships & Love' },
+      { value: 'purpose', label: '🎯 Life Purpose & Karma' },
+      { value: 'challenges', label: '🛡️ Overcoming Life Challenges' }
+    ];
+
+    return (
+      <div className="relative">
+        <label className="block text-premium-lg font-semibold text-spiritual-950 mb-4">Category</label>
+        
+        {/* Enhanced Select with premium styling */}
+        <div className="relative">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            onFocus={() => setIsDropdownOpen(true)}
+            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 150)}
+            className="w-full p-4 sm:p-5 border border-premium rounded-xl bg-premium-card text-spiritual-950 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent text-premium-base touch-manipulation transition-all duration-200 hover:border-premium-hover hover:shadow-md appearance-none cursor-pointer"
+          >
+            {categories.map((cat) => (
+              <option 
+                key={cat.value} 
+                value={cat.value}
+                className="py-3 px-4 hover:bg-amber-50 transition-colors duration-200"
+              >
+                {cat.label}
+              </option>
+            ))}
+          </select>
+          
+          {/* Custom dropdown arrow */}
+          <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+            <div className={`w-6 h-6 text-spiritual-400 transition-transform duration-200 ${
+              isDropdownOpen ? 'rotate-180' : ''
+            }`}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* Selected category indicator */}
+        <div className="mt-3 flex items-center space-x-3">
+          <div className="w-3 h-3 bg-amber-500 rounded-full animate-gentlePulse"></div>
+          <span className="text-premium-sm text-spiritual-600 font-medium">
+            Selected: {categories.find(cat => cat.value === category)?.label}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen p-4">
-      {/* Header */}
-      <header className="flex items-center mb-6">
+    <div className="min-h-screen p-6">
+      {/* Enhanced Header */}
+      <header className="flex items-center mb-8">
         <Link 
           href="/"
-          className="flex items-center text-spiritual-600 hover:text-spiritual-800 transition-colors"
+          className="flex items-center text-spiritual-600 hover:text-spiritual-800 transition-colors hover-spiritual p-2 rounded-lg"
         >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Back to Home
+          <ArrowLeft className="w-6 h-6 mr-3" />
+          <span className="text-premium-base font-medium">Back to Home</span>
         </Link>
       </header>
 
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-spiritual-950 mb-2">
-          Ask a Spiritual Question
-        </h1>
-        <p className="text-spiritual-700 mb-8">
-          Seek wisdom from ancient spiritual texts and receive AI-powered guidance.
-        </p>
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-10">
+          <h1 className="text-premium-3xl font-bold text-spiritual-950 mb-4">
+            Ask a Spiritual Question
+          </h1>
+          <p className="text-premium-lg text-spiritual-700 max-w-2xl mx-auto leading-relaxed">
+            Seek wisdom from ancient spiritual texts and receive AI-powered guidance.
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-spiritual-950 font-semibold mb-3">Category</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full p-4 border border-spiritual-200 rounded-xl bg-white text-spiritual-950 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent"
-            >
-              <option value="dharmic">🕉️ Dharmic Wisdom & Guidance</option>
-              <option value="meditation">🧘 Meditation & Inner Peace</option>
-              <option value="dharma">⚖️ Dharma & Ethical Living</option>
-              <option value="relationships">💕 Sacred Relationships & Love</option>
-              <option value="purpose">🎯 Life Purpose & Karma</option>
-              <option value="challenges">🛡️ Overcoming Life Challenges</option>
-            </select>
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <CategoryDropdown />
 
-          {/* Source Materials Display */}
-          <div>
+          {/* Source Materials Display with smooth transitions */}
+          <div className="transition-all duration-300 ease-in-out">
             <SourceMaterialsDisplay selectedCategory={category} />
           </div>
 
-          <div>
-            <label className="block text-spiritual-950 font-semibold mb-3">Your Question</label>
+          <div className="bg-premium-card border border-premium rounded-xl p-6 sm:p-8 premium-shadow">
+            <label className="block text-premium-lg font-semibold text-spiritual-950 mb-4">Your Question</label>
             <textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Share your spiritual question or concern..."
-              className="w-full p-4 border border-spiritual-200 rounded-xl bg-white text-spiritual-950 placeholder-spiritual-500 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent resize-none"
+              className="w-full p-5 border border-premium rounded-xl bg-white text-spiritual-950 placeholder-spiritual-500 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent resize-none transition-all duration-200 hover:border-premium-hover hover:shadow-md text-premium-base leading-relaxed"
               rows={6}
               maxLength={500}
             />
-            <div className="text-right text-sm text-spiritual-600 mt-2">
+            <div className="text-right text-premium-sm text-spiritual-600 mt-3">
               {question.length}/500
             </div>
           </div>
 
           <button
             type="submit"
-            disabled={!question.trim() || isSubmitting}
-            className="w-full spiritual-gradient text-white py-4 rounded-xl font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-shadow"
+            disabled={isSubmitting || !question.trim()}
+            className="w-full button-premium text-white py-5 px-8 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] touch-manipulation text-premium-lg font-semibold"
           >
             {isSubmitting ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="flex items-center justify-center space-x-3">
+                <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
                 <span>Seeking Wisdom...</span>
-              </>
+              </div>
             ) : (
-              <>
-                <Send className="w-5 h-5" />
-                <span>Submit Question</span>
-              </>
+              <div className="flex items-center justify-center space-x-3">
+                <Send className="w-6 h-6" />
+                <span>Ask for Guidance</span>
+              </div>
             )}
           </button>
         </form>
 
-        <AIResponse 
-          response={aiResponse} 
-          isLoading={isLoadingAI} 
-          error={aiError} 
-        />
-
-        <div className="mt-8 bg-white rounded-xl p-6 card-shadow">
-          <h3 className="text-lg font-bold text-spiritual-950 mb-3">Guidelines for Questions</h3>
-          <ul className="space-y-2 text-sm text-spiritual-700">
-            <li className="flex items-start">
-              <span className="text-spiritual-600 mr-2 font-bold">•</span>
-              <span className="text-spiritual-800">Be specific and clear about your concern</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-spiritual-600 mr-2 font-bold">•</span>
-              <span className="text-spiritual-800">Share relevant context to help provide better guidance</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-spiritual-600 mr-2 font-bold">•</span>
-              <span className="text-spiritual-800">Respect the spiritual nature of this community</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-spiritual-600 mr-2 font-bold">•</span>
-              <span className="text-spiritual-800">Questions are typically answered within 24-48 hours</span>
-            </li>
-          </ul>
+        {/* AI Response */}
+        <div className="mt-12">
+          <AIResponse 
+            response={aiResponse} 
+            isLoading={isLoadingAI} 
+            error={aiError} 
+          />
         </div>
       </div>
     </div>
