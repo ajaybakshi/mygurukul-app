@@ -5,6 +5,7 @@ import { Send, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { callDiscoveryEngine, DiscoveryEngineResponse, DiscoveryEngineError } from '@/lib/discoveryEngine'
 import AIResponse from '@/components/AIResponse'
+import SourceMaterialsDisplay from '@/components/SourceMaterialsDisplay'
 
 export default function SubmitPage() {
   const [question, setQuestion] = useState('')
@@ -76,6 +77,11 @@ export default function SubmitPage() {
               <option value="purpose">Life Purpose & Meaning</option>
               <option value="challenges">Dealing with Challenges</option>
             </select>
+          </div>
+
+          {/* Source Materials Display */}
+          <div>
+            <SourceMaterialsDisplay selectedCategory={category} />
           </div>
 
           <div>
