@@ -78,12 +78,24 @@ const EmptyState = ({ category }: { category: string }) => (
   </div>
 );
 
+// Helper function to get source icon based on collection
+const getSourceIcon = (collection: string) => {
+  const collectionLower = collection.toLowerCase();
+  if (collectionLower.includes('upanishad')) return '🕉️';
+  if (collectionLower.includes('bhagavad') || collectionLower.includes('gita')) return '📖';
+  if (collectionLower.includes('ramayana')) return '🏹';
+  if (collectionLower.includes('mahabharata')) return '⚔️';
+  if (collectionLower.includes('yoga') || collectionLower.includes('sutra')) return '🧘';
+  if (collectionLower.includes('swami') || collectionLower.includes('vivekananda')) return '🙏';
+  return '📚';
+};
+
 // Individual source material card
 const SourceMaterialCard = ({ source }: { source: SourceMaterial }) => {
   const isAvailable = source.status === 'available';
   
   return (
-    <div className={`bg-white rounded-lg shadow-md border transition-all duration-300 hover:shadow-lg ${
+    <div className={`bg-white rounded-xl shadow-md border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
       isAvailable 
         ? 'border-amber-200 hover:border-amber-300' 
         : 'border-gray-200 opacity-75'
@@ -92,23 +104,28 @@ const SourceMaterialCard = ({ source }: { source: SourceMaterial }) => {
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
-            <h3 className={`text-lg font-semibold mb-1 ${
-              isAvailable ? 'text-amber-800' : 'text-gray-500'
-            }`}>
-              {source.sourceName}
-            </h3>
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-xl">
+                {getSourceIcon(source.collection)}
+              </span>
+              <h3 className={`text-xl font-bold ${
+                isAvailable ? 'text-amber-800' : 'text-gray-500'
+              }`}>
+                {source.sourceName}
+              </h3>
+            </div>
             <p className="text-sm text-amber-600 font-medium">
               {source.collection}
             </p>
           </div>
-          <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+          <div className={`px-4 py-2 rounded-full text-xs font-semibold shadow-sm ${
             isAvailable 
-              ? 'bg-amber-100 text-amber-700' 
+              ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' 
               : source.status === 'not_found'
               ? 'bg-red-100 text-red-700'
               : 'bg-gray-100 text-gray-700'
           }`}>
-            {isAvailable ? 'Available' : source.status === 'not_found' ? 'Not Found' : 'Error'}
+            {isAvailable ? '✓ Available' : source.status === 'not_found' ? 'Not Found' : 'Error'}
           </div>
         </div>
 
@@ -120,43 +137,43 @@ const SourceMaterialCard = ({ source }: { source: SourceMaterial }) => {
         </p>
 
         {/* Metadata Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          <div>
-            <p className="text-xs text-amber-600 font-medium uppercase tracking-wide">Author</p>
-            <p className={`text-sm ${isAvailable ? 'text-gray-800' : 'text-gray-500'}`}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+          <div className="bg-amber-50 rounded-lg p-3">
+            <p className="text-xs text-amber-600 font-semibold uppercase tracking-wide mb-1">Author</p>
+            <p className={`text-sm font-medium ${isAvailable ? 'text-gray-800' : 'text-gray-500'}`}>
               {source.author}
             </p>
           </div>
-          <div>
-            <p className="text-xs text-amber-600 font-medium uppercase tracking-wide">Language</p>
-            <p className={`text-sm ${isAvailable ? 'text-gray-800' : 'text-gray-500'}`}>
+          <div className="bg-amber-50 rounded-lg p-3">
+            <p className="text-xs text-amber-600 font-semibold uppercase tracking-wide mb-1">Language</p>
+            <p className={`text-sm font-medium ${isAvailable ? 'text-gray-800' : 'text-gray-500'}`}>
               {source.language}
             </p>
           </div>
-          <div>
-            <p className="text-xs text-amber-600 font-medium uppercase tracking-wide">Period</p>
-            <p className={`text-sm ${isAvailable ? 'text-gray-800' : 'text-gray-500'}`}>
+          <div className="bg-amber-50 rounded-lg p-3">
+            <p className="text-xs text-amber-600 font-semibold uppercase tracking-wide mb-1">Period</p>
+            <p className={`text-sm font-medium ${isAvailable ? 'text-gray-800' : 'text-gray-500'}`}>
               {source.period}
             </p>
           </div>
-          <div>
-            <p className="text-xs text-amber-600 font-medium uppercase tracking-wide">Size</p>
-            <p className={`text-sm ${isAvailable ? 'text-gray-800' : 'text-gray-500'}`}>
+          <div className="bg-amber-50 rounded-lg p-3">
+            <p className="text-xs text-amber-600 font-semibold uppercase tracking-wide mb-1">Size</p>
+            <p className={`text-sm font-medium ${isAvailable ? 'text-gray-800' : 'text-gray-500'}`}>
               {source.fileSize}
             </p>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-4 border-t border-amber-100">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
-            <span className="text-xs text-amber-600">
+        <div className="flex items-center justify-between pt-5 border-t border-amber-100">
+          <div className="flex items-center space-x-3">
+            <div className="w-3 h-3 bg-amber-400 rounded-full animate-pulse"></div>
+            <span className="text-xs text-amber-600 font-medium">
               Updated: {source.lastUpdated}
             </span>
           </div>
           {isAvailable && (
-            <button className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-sm font-medium rounded-lg hover:from-amber-600 hover:to-amber-700 transition-all duration-200 shadow-sm hover:shadow-md">
+            <button className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-sm font-semibold rounded-lg hover:from-amber-600 hover:to-amber-700 transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105">
               View Source
             </button>
           )}
@@ -256,18 +273,26 @@ const SourceMaterialsDisplay: React.FC<SourceMaterialsDisplayProps> = ({ selecte
   return (
     <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg p-6">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-2xl font-bold text-amber-800 mb-2">
-              Sacred Sources: {categoryDisplayName}
-            </h2>
-            <p className="text-amber-600">
-              Discover wisdom from ancient texts and spiritual teachings
-            </p>
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-lg">
+              <span className="text-2xl">🕉️</span>
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold text-amber-800 mb-2 leading-tight">
+                Sacred Sources
+              </h2>
+              <p className="text-lg text-amber-600 font-medium">
+                {categoryDisplayName}
+              </p>
+              <p className="text-amber-500 text-sm mt-1">
+                Discover wisdom from ancient texts and spiritual teachings
+              </p>
+            </div>
           </div>
-          <div className="hidden md:flex items-center space-x-2">
-            <div className="w-3 h-3 bg-amber-400 rounded-full animate-pulse"></div>
+          <div className="hidden md:flex items-center space-x-3">
+            <div className="w-4 h-4 bg-green-400 rounded-full animate-pulse"></div>
             <span className="text-sm text-amber-600 font-medium">
               {stats.totalFound} of {stats.totalRequested} sources available
             </span>
@@ -275,9 +300,9 @@ const SourceMaterialsDisplay: React.FC<SourceMaterialsDisplayProps> = ({ selecte
         </div>
         
         {/* Mobile stats */}
-        <div className="md:hidden bg-white rounded-lg p-3 mb-4">
+        <div className="md:hidden bg-white rounded-xl p-4 mb-6 shadow-sm">
           <div className="flex items-center justify-center space-x-2">
-            <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
             <span className="text-sm text-amber-600 font-medium">
               {stats.totalFound} of {stats.totalRequested} sources available
             </span>
@@ -289,7 +314,7 @@ const SourceMaterialsDisplay: React.FC<SourceMaterialsDisplayProps> = ({ selecte
       {sources.length === 0 ? (
         <EmptyState category={categoryDisplayName} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sources.map((source, index) => (
             <SourceMaterialCard key={`${source.fileName}-${index}`} source={source} />
           ))}
