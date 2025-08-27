@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleAuth } from 'google-auth-library'
+import { createSessionWithFallback, buildSessionPath, generateUserPseudoId } from '@/lib/sessionManager'
 
 export async function POST(request: NextRequest) {
   try {
-    const { question } = await request.json()
+    const { question, sessionId } = await request.json()
     
     if (!question || typeof question !== 'string') {
       return NextResponse.json(
@@ -13,6 +14,37 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Received question:', question)
+    console.log('Session ID:', sessionId || 'not provided')
+
+    // Handle session creation if no sessionId provided
+    let googleSessionPath: string | null = null;
+    let newSessionId: string | null = null;
+    
+    if (!sessionId) {
+      console.log('🔄 No session provided, creating new Google session...');
+      const userPseudoId = generateUserPseudoId();
+      googleSessionPath = await createSessionWithFallback(
+        'MyGurukul Spiritual Session',
+        userPseudoId
+      );
+      
+      if (googleSessionPath) {
+        // Extract session ID from the full path for frontend
+        newSessionId = googleSessionPath.split('/').pop() || null;
+        console.log('✅ New session created:', newSessionId);
+      } else {
+        console.log('⚠️ Session creation failed, continuing without session');
+      }
+    } else {
+      // Use existing sessionId to build proper Google session path
+      try {
+        googleSessionPath = buildSessionPath(sessionId);
+        console.log('🔄 Using existing session:', googleSessionPath);
+      } catch (error) {
+        console.log('⚠️ Invalid session format, continuing without session:', error);
+        googleSessionPath = null;
+      }
+    }
 
     // Get environment variables for service account authentication
     const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID
@@ -84,6 +116,7 @@ export async function POST(request: NextRequest) {
       query: {
         text: queryText
       },
+      ...(googleSessionPath && { session: googleSessionPath }),
       answerGenerationSpec: {
         includeCitations: true,
         promptSpec: {
@@ -128,6 +161,7 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
 
     console.log('Request body being sent:', JSON.stringify(requestBody, null, 2))
     console.log('Answer API Endpoint:', apiEndpoint)
+    console.log('Session path being used:', googleSessionPath || 'none')
     console.log('Using OAuth2 authentication with environment-based credentials')
     console.log('🎯 Using Answer API with MyGurukul custom prompt for compassionate spiritual guidance')
     console.log('📖 Applied MyGurukul Core Identity & Sacred Resolve prompt')
@@ -177,9 +211,16 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
       const data = await response.json()
       console.log('Success response from Google Discovery Engine Answer API:', JSON.stringify(data, null, 2))
 
+      // Return response with session information if new session was created
+      const responseData = { ...data };
+      if (newSessionId) {
+        responseData.sessionId = newSessionId;
+        console.log('📤 Returning new session ID to frontend:', newSessionId);
+      }
+
       // Ensure we return the complete response structure
       // The Google Discovery Engine API returns the response directly
-      return NextResponse.json(data)
+      return NextResponse.json(responseData)
     } catch (error) {
       clearTimeout(timeoutId)
       

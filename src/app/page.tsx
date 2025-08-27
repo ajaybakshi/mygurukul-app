@@ -25,9 +25,9 @@ export default function HomePage() {
           </p>
           <Link 
             href="/submit"
-            className="inline-block bg-white text-spiritual-950 px-6 py-3 rounded-full font-medium hover:bg-spiritual-50 transition-colors"
+            className="button-primary-spiritual"
           >
-            Ask a Question
+            Ask for Guidance
           </Link>
         </div>
       </section>
@@ -40,14 +40,14 @@ export default function HomePage() {
         <div className="grid grid-cols-2 gap-4">
           <Link 
             href="/submit"
-            className="bg-white rounded-xl p-4 text-center card-shadow hover:shadow-lg transition-shadow"
+            className="quick-action-button"
           >
             <MessageCircle className="w-8 h-8 text-spiritual-500 mx-auto mb-2" />
             <span className="text-spiritual-950 font-medium">Ask Question</span>
           </Link>
           <Link 
             href="/history"
-            className="bg-white rounded-xl p-4 text-center card-shadow hover:shadow-lg transition-shadow"
+            className="quick-action-button"
           >
             <Clock className="w-8 h-8 text-spiritual-500 mx-auto mb-2" />
             <span className="text-spiritual-950 font-medium">My History</span>

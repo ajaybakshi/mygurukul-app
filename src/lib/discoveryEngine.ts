@@ -45,6 +45,7 @@ export interface DiscoveryEngineResponse {
       }>;
     }>;
   };
+  sessionId?: string; // New session ID returned from API
 }
 
 export class DiscoveryEngineError extends Error {
@@ -54,19 +55,33 @@ export class DiscoveryEngineError extends Error {
   }
 }
 
-export async function callDiscoveryEngine(question: string): Promise<DiscoveryEngineResponse> {
+export function extractSessionInfo(response: any): string | null {
+  console.log('🎯 Extracting session information from response...');
+  
+  // Check for sessionId (new session ID from API)
+  if (response.sessionId) {
+    console.log('✅ Found sessionId:', response.sessionId);
+    return response.sessionId;
+  }
+  
+  console.log('❌ No session information found in response');
+  return null;
+}
+
+export async function callDiscoveryEngine(question: string, sessionId?: string): Promise<DiscoveryEngineResponse> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
   try {
     console.log('Calling Discovery Engine API with question:', question);
+    console.log('Session ID:', sessionId || 'not provided');
     
     const response = await fetch('/api/discovery-engine', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ question, ...(sessionId && { sessionId }) }),
       signal: controller.signal,
     });
 
@@ -85,6 +100,13 @@ export async function callDiscoveryEngine(question: string): Promise<DiscoveryEn
 
     const data = await response.json();
     console.log('API Success data:', data);
+    
+    // Extract session information
+    const extractedSessionId = extractSessionInfo(data);
+    if (extractedSessionId) {
+      console.log('🎯 Extracted session ID:', extractedSessionId);
+    }
+    
     console.log('API Response structure:', {
       hasAnswer: !!data.answer,
       answerState: data.answer?.state,
@@ -92,7 +114,8 @@ export async function callDiscoveryEngine(question: string): Promise<DiscoveryEn
       hasCitations: !!data.answer?.citations,
       citationsCount: data.answer?.citations?.length || 0,
       hasReferences: !!data.answer?.references,
-      referencesCount: data.answer?.references?.length || 0
+      referencesCount: data.answer?.references?.length || 0,
+      hasSessionId: !!data.sessionId
     });
     return data as DiscoveryEngineResponse;
   } catch (error) {

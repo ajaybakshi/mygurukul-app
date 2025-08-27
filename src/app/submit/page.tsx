@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, ArrowLeft } from 'lucide-react'
+import { Send, ArrowLeft, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { callDiscoveryEngine, DiscoveryEngineResponse, DiscoveryEngineError } from '@/lib/discoveryEngine'
 import AIResponse from '@/components/AIResponse'
@@ -15,6 +15,7 @@ export default function SubmitPage() {
   const [isLoadingAI, setIsLoadingAI] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,11 +27,24 @@ export default function SubmitPage() {
     setAiResponse(null)
 
     try {
-      const response = await callDiscoveryEngine(question)
+      const response = await callDiscoveryEngine(question, sessionId || undefined)
       setAiResponse(response)
+      
+      // Extract and store session ID from response if not already set
+      if (response.sessionId && !sessionId) {
+        console.log('🎯 Setting session ID from response:', response.sessionId)
+        setSessionId(response.sessionId)
+        // Show success feedback for session creation
+        console.log('✅ Session created successfully for conversation continuity')
+      }
     } catch (error) {
       if (error instanceof DiscoveryEngineError) {
         setAiError(error.message)
+        // Handle session-specific errors
+        if (error.message.includes('session')) {
+          console.log('⚠️ Session-related error, continuing without session')
+          setSessionId(null) // Clear invalid session
+        }
       } else if (error instanceof Error) {
         setAiError(error.message)
       } else {
@@ -40,6 +54,13 @@ export default function SubmitPage() {
       setIsSubmitting(false)
       setIsLoadingAI(false)
     }
+  }
+
+  const handleNewConversation = () => {
+    setSessionId(null)
+    setAiResponse(null)
+    setAiError(null)
+    setQuestion('')
   }
 
   // Enhanced Category Dropdown Component
@@ -103,7 +124,7 @@ export default function SubmitPage() {
   return (
     <div className="min-h-screen p-6">
       {/* Enhanced Header */}
-      <header className="flex items-center mb-8">
+      <header className="flex items-center justify-between mb-8">
         <Link 
           href="/"
           className="flex items-center text-spiritual-600 hover:text-spiritual-800 transition-colors hover-spiritual p-2 rounded-lg"
@@ -111,6 +132,18 @@ export default function SubmitPage() {
           <ArrowLeft className="w-6 h-6 mr-3" />
           <span className="text-premium-base font-medium">Back to Home</span>
         </Link>
+
+        {/* Enhanced New Conversation Button - Only show when there's an active session */}
+        {sessionId && (
+          <button
+            onClick={handleNewConversation}
+            className="flex items-center bg-gradient-to-r from-amber-500 to-amber-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:from-amber-600 hover:to-amber-700 hover:shadow-lg hover:scale-105 active:scale-95"
+            title="Start a new conversation"
+          >
+            <RefreshCw className="w-5 h-5 mr-2" />
+            <span>New Conversation</span>
+          </button>
+        )}
       </header>
 
       <div className="max-w-4xl mx-auto">
@@ -118,21 +151,43 @@ export default function SubmitPage() {
           <h1 className="text-premium-3xl font-bold text-spiritual-950 mb-4">
             Ask a Spiritual Question
           </h1>
-          <p className="text-premium-lg text-spiritual-700 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-premium-lg text-spiritual-700 max-w-2xl mx-auto leading-relaxed mb-6">
             Seek wisdom from ancient spiritual texts and receive AI-powered guidance.
           </p>
+          
+          {/* Enhanced Session Status Indicator - More prominent and informative */}
+          {sessionId && (
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center bg-gradient-to-r from-amber-50 to-amber-100/50 px-4 py-2 rounded-full border border-amber-200/50 shadow-sm">
+                <span className="w-3 h-3 bg-amber-500 rounded-full mr-3 animate-gentlePulse"></span>
+                <span className="text-premium-base text-spiritual-700 font-medium">
+                  Continuing conversation
+                </span>
+                <span className="ml-2 text-premium-sm text-spiritual-500">
+                  ({sessionId.length > 20 ? `${sessionId.substring(0, 8)}...` : sessionId})
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
           <CategoryDropdown />
 
-          {/* Source Materials Display with smooth transitions */}
-          <div className="transition-all duration-300 ease-in-out">
-            <SourceMaterialsDisplay selectedCategory={category} />
-          </div>
-
+          {/* Question Input Area - Now prominently positioned */}
           <div className="bg-premium-card border border-premium rounded-xl p-6 sm:p-8 premium-shadow">
-            <label className="block text-premium-lg font-semibold text-spiritual-950 mb-4">Your Question</label>
+            <div className="flex items-center justify-between mb-4">
+              <label className="block text-premium-lg font-semibold text-spiritual-950">Your Question</label>
+              {/* Subtle New Conversation Button - Always visible but contextual */}
+              <button
+                onClick={handleNewConversation}
+                className="flex items-center text-spiritual-500 hover:text-spiritual-700 transition-all duration-200 hover-spiritual p-2 rounded-lg border border-transparent hover:border-amber-200 hover:bg-amber-50/30"
+                title="Start a fresh conversation"
+              >
+                <RefreshCw className="w-4 h-4 mr-1" />
+                <span className="text-premium-sm font-medium">New</span>
+              </button>
+            </div>
             <textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
@@ -146,10 +201,11 @@ export default function SubmitPage() {
             </div>
           </div>
 
+          {/* Ask for Guidance Button - Immediately below question input */}
           <button
             type="submit"
             disabled={isSubmitting || !question.trim()}
-            className="w-full button-premium text-white py-5 px-8 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] touch-manipulation text-premium-lg font-semibold"
+            className="w-full button-primary-spiritual disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:transform-none"
           >
             {isSubmitting ? (
               <div className="flex items-center justify-center space-x-3">
@@ -172,6 +228,25 @@ export default function SubmitPage() {
             isLoading={isLoadingAI} 
             error={aiError} 
           />
+          
+          {/* Prominent New Conversation Button - When response is present */}
+          {aiResponse && (
+            <div className="mt-8 text-center">
+              <button
+                onClick={handleNewConversation}
+                className="button-secondary-spiritual inline-flex items-center"
+                title="Start a new conversation"
+              >
+                <RefreshCw className="w-5 h-5 mr-2" />
+                <span>Start New Conversation</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Source Materials Display - Moved to secondary position */}
+        <div className="mt-12 transition-all duration-300 ease-in-out">
+          <SourceMaterialsDisplay selectedCategory={category} />
         </div>
       </div>
     </div>
