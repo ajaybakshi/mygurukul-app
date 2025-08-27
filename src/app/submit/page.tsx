@@ -9,7 +9,7 @@ import SourceMaterialsDisplay from '@/components/SourceMaterialsDisplay'
 
 export default function SubmitPage() {
   const [question, setQuestion] = useState('')
-  const [category, setCategory] = useState('general')
+  const [category, setCategory] = useState('dharmic')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [aiResponse, setAiResponse] = useState<DiscoveryEngineResponse | null>(null)
   const [isLoadingAI, setIsLoadingAI] = useState(false)
@@ -70,12 +70,12 @@ export default function SubmitPage() {
               onChange={(e) => setCategory(e.target.value)}
               className="w-full p-4 border border-spiritual-200 rounded-xl bg-white text-spiritual-950 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent"
             >
-              <option value="general">General Spiritual Guidance</option>
-              <option value="meditation">Meditation & Mindfulness</option>
-              <option value="philosophy">Philosophy & Ethics</option>
-              <option value="relationships">Relationships & Love</option>
-              <option value="purpose">Life Purpose & Meaning</option>
-              <option value="challenges">Dealing with Challenges</option>
+              <option value="dharmic">🕉️ Dharmic Wisdom & Guidance</option>
+              <option value="meditation">🧘 Meditation & Inner Peace</option>
+              <option value="dharma">⚖️ Dharma & Ethical Living</option>
+              <option value="relationships">💕 Sacred Relationships & Love</option>
+              <option value="purpose">🎯 Life Purpose & Karma</option>
+              <option value="challenges">🛡️ Overcoming Life Challenges</option>
             </select>
           </div>
 
