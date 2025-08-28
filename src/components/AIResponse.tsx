@@ -58,7 +58,7 @@ export default function AIResponse({ response, isLoading, error }: AIResponsePro
   console.log('AIResponse - Answer state:', answer.state)
   
   // Check if the answer is in a successful state
-  if (answer.state !== 'SUCCEEDED') {
+  if (answer.state !== 'SUCCEEDED' && answer.state !== 'COMPLETED') {
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mt-6">
         <div className="flex items-center space-x-3 mb-3">
