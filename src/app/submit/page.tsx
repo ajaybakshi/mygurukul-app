@@ -146,7 +146,8 @@ export default function SubmitPage() {
             <button
               type="submit"
               disabled={isSubmitting || !question.trim()}
-              className="w-full button-premium text-white py-5 px-8 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] touch-manipulation text-premium-lg font-semibold"
+              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-5 px-8 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:from-amber-600 hover:to-amber-700 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] touch-manipulation text-premium-lg font-semibold border-2 border-amber-400 shadow-lg focus:outline-none focus:ring-4 focus:ring-amber-300 focus:ring-opacity-50"
+              aria-label="Submit spiritual question for AI guidance"
             >
               {isSubmitting ? (
                 <div className="flex items-center justify-center space-x-3">
