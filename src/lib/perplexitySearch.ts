@@ -1,4 +1,52 @@
-import { createPerplexity } from '@ai-sdk/perplexity'
+// Direct Perplexity API integration - no SDK dependency
+
+// ============================================================================
+// PERPLEXITY API INTERFACES
+// ============================================================================
+
+export interface PerplexityMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+}
+
+export interface PerplexityRequest {
+  model: string
+  messages: PerplexityMessage[]
+  max_tokens?: number
+  temperature?: number
+  top_p?: number
+  stream?: boolean
+}
+
+export interface PerplexityCitation {
+  start: number
+  end: number
+  text: string
+  document_ids: string[]
+}
+
+export interface PerplexityChoice {
+  index: number
+  message: {
+    role: string
+    content: string
+    citations?: PerplexityCitation[]
+  }
+  finish_reason: string
+}
+
+export interface PerplexityResponse {
+  id: string
+  object: string
+  created: number
+  model: string
+  choices: PerplexityChoice[]
+  usage: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+  }
+}
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -60,7 +108,7 @@ export interface PerplexitySearchResponse {
 }
 
 export interface PerplexitySearchOptions {
-  model?: 'sonar-small-online' | 'sonar-small-chat' | 'sonar-medium-online' | 'sonar-medium-chat' | 'sonar-pro-online' | 'sonar-pro-chat'
+  model?: 'llama-3.1-8b-instruct' | 'llama-3.1-70b-instruct' | 'mixtral-8x7b-instruct' | 'codellama-34b-instruct' | 'pplx-7b-online' | 'pplx-70b-online' | 'pplx-7b-chat' | 'pplx-70b-chat'
   maxResults?: number
   includeSpiritualContext?: boolean
   searchFocus?: 'spiritual_texts' | 'general' | 'hybrid'
@@ -78,12 +126,93 @@ export class PerplexitySearchError extends Error {
 // ============================================================================
 
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY
+const PERPLEXITY_API_ENDPOINT = 'https://api.perplexity.ai/chat/completions'
 const ENABLE_PERPLEXITY_SEARCH = process.env.ENABLE_PERPLEXITY_SEARCH === 'true'
 const PERPLEXITY_SEARCH_WEIGHT = parseFloat(process.env.PERPLEXITY_SEARCH_WEIGHT || '0.7')
 
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
+
+async function callPerplexityAPI(request: PerplexityRequest): Promise<PerplexityResponse> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+  try {
+    console.log('🌐 Making direct Perplexity API call...')
+    console.log('📤 Request payload:', JSON.stringify(request, null, 2))
+
+    const response = await fetch(PERPLEXITY_API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    console.log('📥 Perplexity API response status:', response.status)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('❌ Perplexity API error response:', errorText)
+      throw new PerplexitySearchError(
+        `Perplexity API request failed: ${response.status} ${response.statusText}`,
+        response.status
+      )
+    }
+
+    const data = await response.json() as PerplexityResponse
+    console.log('✅ Perplexity API response received:', {
+      id: data.id,
+      model: data.model,
+      choicesCount: data.choices.length,
+      usage: data.usage
+    })
+
+    return data
+  } catch (error) {
+    clearTimeout(timeoutId)
+    
+    if (error instanceof PerplexitySearchError) {
+      throw error
+    }
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new PerplexitySearchError('Perplexity API request timed out after 30 seconds')
+      }
+      throw new PerplexitySearchError(`Perplexity API error: ${error.message}`)
+    }
+    
+    throw new PerplexitySearchError('Unknown error during Perplexity API call')
+  }
+}
+
+function parsePerplexityCitations(choice: PerplexityChoice): Array<{
+  startIndex: number
+  endIndex: number
+  sources: Array<{
+    referenceId: string
+    title?: string
+    uri?: string
+  }>
+}> {
+  if (!choice.message.citations) return []
+
+  return choice.message.citations.map(citation => ({
+    startIndex: citation.start,
+    endIndex: citation.end,
+    sources: citation.document_ids.map((docId, index) => ({
+      referenceId: docId,
+      title: `Source ${index + 1}`,
+      uri: `https://perplexity.ai/source/${docId}`
+    }))
+  }))
+}
 
 function validateConfiguration(): void {
   if (!ENABLE_PERPLEXITY_SEARCH) {
@@ -257,36 +386,58 @@ export async function perplexitySearch(
     const spiritualPrompt = createSpiritualContextPrompt(query)
     
     // Configure Perplexity client
-    const model = options.model || 'sonar-medium-online'
+    const model = options.model || 'pplx-7b-online'
     const maxResults = options.maxResults || 10
     
     console.log('🤖 Using Perplexity model:', model)
     console.log('📊 Max results:', maxResults)
     
-    // Create Perplexity client
-    const perplexityClient = createPerplexity({
-      apiKey: PERPLEXITY_API_KEY!
-    })
-    
-    // Perform the search using Perplexity
-    const response = await perplexityClient.generateText({
+    // Prepare Perplexity API request
+    const perplexityRequest: PerplexityRequest = {
       model,
-      prompt: `${spiritualPrompt}\n\nSearch Query: ${enhancedQuery}\n\nPlease provide a comprehensive spiritual response with relevant citations and sources.`,
-      maxTokens: 2000,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a wise spiritual guide who searches for and synthesizes wisdom from ancient texts and sacred scriptures. Always provide compassionate, accurate guidance grounded in authentic spiritual sources.'
+        },
+        {
+          role: 'user',
+          content: `${spiritualPrompt}\n\nSearch Query: ${enhancedQuery}\n\nPlease provide a comprehensive spiritual response with relevant citations and sources.`
+        }
+      ],
+      max_tokens: 2000,
       temperature: 0.7,
-      topP: 0.9,
-      system: 'You are a wise spiritual guide who searches for and synthesizes wisdom from ancient texts and sacred scriptures. Always provide compassionate, accurate guidance grounded in authentic spiritual sources.'
-    })
+      top_p: 0.9
+    }
+    
+    // Perform the search using direct Perplexity API
+    const response = await callPerplexityAPI(perplexityRequest)
     
     const searchTime = Date.now() - startTime
     console.log(`✅ Perplexity search completed in ${searchTime}ms`)
     
-    // Transform the response into our expected format
+    // Transform the Perplexity API response into our expected format
+    const choice = response.choices[0]
+    const answerText = choice?.message?.content || 'No answer generated'
+    const citations = choice ? parsePerplexityCitations(choice) : []
+    
     const transformedResponse: PerplexitySearchResponse = {
-      answer: response.text || 'No answer generated',
-      results: [], // Perplexity doesn't return structured results like this
-      citations: [], // Would need to parse from response text
-      references: [], // Would need to extract from response
+      answer: answerText,
+      results: [], // Perplexity doesn't return structured search results
+      citations: citations,
+      references: citations.map(citation => ({
+        title: citation.sources[0]?.title || 'Perplexity Source',
+        uri: citation.sources[0]?.uri || 'https://perplexity.ai',
+        chunkInfo: {
+          content: answerText.slice(citation.startIndex, citation.endIndex),
+          relevanceScore: 0.9,
+          documentMetadata: {
+            document: citation.sources[0]?.uri || 'https://perplexity.ai',
+            uri: citation.sources[0]?.uri || 'https://perplexity.ai',
+            title: citation.sources[0]?.title || 'Perplexity Source'
+          }
+        }
+      })),
       steps: [
         {
           state: 'COMPLETED',
@@ -355,17 +506,19 @@ export async function testPerplexityConnection(): Promise<boolean> {
     validateConfiguration()
     console.log('🔗 Testing Perplexity API connection...')
     
-    // Create Perplexity client
-    const perplexityClient = createPerplexity({
-      apiKey: PERPLEXITY_API_KEY!
-    })
+    // Simple test request
+    const testRequest: PerplexityRequest = {
+      model: 'pplx-7b-online',
+      messages: [
+        {
+          role: 'user',
+          content: 'Test connection - respond with "Hello"'
+        }
+      ],
+      max_tokens: 10
+    }
     
-    // Simple test query
-    const testResponse = await perplexityClient.generateText({
-      model: 'sonar-small-online',
-      prompt: 'Test connection',
-      maxTokens: 10
-    })
+    const testResponse = await callPerplexityAPI(testRequest)
     
     console.log('✅ Perplexity API connection successful')
     return true
@@ -381,9 +534,10 @@ export async function testPerplexityConnection(): Promise<boolean> {
 
 export const PERPLEXITY_CONFIG = {
   apiKey: PERPLEXITY_API_KEY,
+  apiEndpoint: PERPLEXITY_API_ENDPOINT,
   enabled: ENABLE_PERPLEXITY_SEARCH,
   searchWeight: PERPLEXITY_SEARCH_WEIGHT,
-  defaultModel: 'sonar-medium-online' as const,
+  defaultModel: 'pplx-7b-online' as const,
   maxResults: 10,
   timeout: 30000
 } as const

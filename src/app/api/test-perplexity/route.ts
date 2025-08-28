@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     
     // Test 2: Mock Search Test (Real API integration in progress)
     try {
-      // Use mock mode for now while refining real API integration
+      // Use mock mode for now while fixing model names
       process.env.USE_MOCK_PERPLEXITY = 'true'
       
       const mockResult = await perplexitySearch('How can I find inner peace?', {
