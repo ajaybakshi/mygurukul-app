@@ -1,11 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleAuth } from 'google-auth-library'
+import { promises as fs } from 'fs'
+import path from 'path'
 
 export async function POST(request: NextRequest) {
+  // Initialize logging
+  const timestamp = new Date().toISOString()
+  const logData: {
+    timestamp: string
+    requestBody: any
+    response: any
+    error: string | null
+    status: number | null
+  } = {
+    timestamp,
+    requestBody: null,
+    response: null,
+    error: null,
+    status: null
+  }
+  
+  // Helper function to write logs
+  const writeLog = async (data: any) => {
+    if (process.env.NODE_ENV !== 'development') return
+    
+    try {
+      const logsDir = path.join(process.cwd(), 'logs')
+      await fs.mkdir(logsDir, { recursive: true })
+      
+      const filename = `api-call-${timestamp.replace(/[:.]/g, '-')}.json`
+      const filepath = path.join(logsDir, filename)
+      
+      await fs.writeFile(filepath, JSON.stringify(data, null, 2))
+      console.log(`📝 API log written to: ${filepath}`)
+    } catch (logError) {
+      console.error('Failed to write API log:', logError)
+    }
+  }
+
   try {
     const { question } = await request.json()
     
     if (!question || typeof question !== 'string') {
+      logData.error = 'Question is required and must be a string'
+      logData.status = 400
+      await writeLog(logData)
       return NextResponse.json(
         { error: 'Question is required and must be a string' },
         { status: 400 }
@@ -28,6 +67,9 @@ export async function POST(request: NextRequest) {
         hasPrivateKey: !!privateKey,
         hasApiEndpoint: !!apiEndpoint
       })
+      logData.error = 'Google Cloud credentials not configured'
+      logData.status = 500
+      await writeLog(logData)
       return NextResponse.json(
         { error: 'Google Cloud credentials not configured. Please check environment variables.' },
         { status: 500 }
@@ -65,6 +107,9 @@ export async function POST(request: NextRequest) {
       console.log('Access token obtained successfully')
     } catch (error) {
       console.log('Error getting access token:', error)
+      logData.error = 'Failed to authenticate with Google Cloud'
+      logData.status = 500
+      await writeLog(logData)
       return NextResponse.json(
         { error: 'Failed to authenticate with Google Cloud. Please check service account credentials and permissions.' },
         { status: 500 }
@@ -127,6 +172,7 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
     }
 
     console.log('Request body being sent:', JSON.stringify(requestBody, null, 2))
+    logData.requestBody = requestBody
     console.log('Answer API Endpoint:', apiEndpoint)
     console.log('Using OAuth2 authentication with environment-based credentials')
     console.log('🎯 Using Answer API with MyGurukul custom prompt for compassionate spiritual guidance')
@@ -168,6 +214,10 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
           errorMessage = `API Error: ${errorText}`
         }
         
+        logData.error = errorMessage
+        logData.status = response.status
+        await writeLog(logData)
+        
         return NextResponse.json(
           { error: errorMessage },
           { status: response.status }
@@ -177,6 +227,10 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
       const data = await response.json()
       console.log('Success response from Google Discovery Engine Answer API:', JSON.stringify(data, null, 2))
 
+      logData.response = data
+      logData.status = 200
+      await writeLog(logData)
+
       // Ensure we return the complete response structure
       // The Google Discovery Engine API returns the response directly
       return NextResponse.json(data)
@@ -185,19 +239,29 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
       
       console.log('Fetch error:', error)
       
+      let errorMessage = 'Unknown error occurred'
+      let statusCode = 500
+      
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
+          errorMessage = 'Request timed out after 30 seconds'
+          statusCode = 408
           return NextResponse.json(
             { error: 'Request timed out after 30 seconds' },
             { status: 408 }
           )
         }
         
+        errorMessage = `Network error: ${error.message}`
         return NextResponse.json(
           { error: `Network error: ${error.message}` },
           { status: 500 }
         )
       }
+      
+      logData.error = errorMessage
+      logData.status = statusCode
+      await writeLog(logData)
       
       return NextResponse.json(
         { error: 'Unknown error occurred' },
@@ -206,6 +270,9 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
     }
   } catch (error) {
     console.log('Request parsing error:', error)
+    logData.error = 'Invalid request body'
+    logData.status = 400
+    await writeLog(logData)
     return NextResponse.json(
       { error: 'Invalid request body' },
       { status: 400 }
