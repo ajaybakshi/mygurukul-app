@@ -373,7 +373,7 @@ export async function POST(request: NextRequest) {
         (async () => {
           try {
             console.log('🔍 Starting Google Discovery Engine search...')
-            const result = await executeDiscoveryEngineSearch(question, accessToken.token!, apiEndpoint!, googleSessionPath)
+            const result = await executeDiscoveryEngineSearch(question, accessToken.token!, apiEndpoint!, googleSessionPath || undefined)
             console.log('✅ Google Discovery Engine search completed')
             return { success: true, result }
           } catch (error) {
@@ -467,7 +467,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Fallback to Discovery Engine only
       console.log('🔄 Using Discovery Engine-only search (hybrid search disabled)')
-      const result = await executeDiscoveryEngineSearch(question, accessToken.token!, apiEndpoint!, googleSessionPath)
+      const result = await executeDiscoveryEngineSearch(question, accessToken.token!, apiEndpoint!, googleSessionPath || undefined)
       
       // Return response with session information if new session was created
       const responseData = { ...result };
