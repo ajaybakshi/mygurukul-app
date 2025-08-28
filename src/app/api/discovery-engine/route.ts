@@ -199,7 +199,11 @@ Provide only the enhanced search terms, separated by spaces. Example: "dharma ka
 
 Enhanced terms:`
 
-    const enhancedQuery = await perplexitySearch(enhancementPrompt)
+    const enhancedQuery = await perplexitySearch(enhancementPrompt, {
+      model: 'sonar',
+      includeSpiritualContext: true,
+      searchFocus: 'spiritual_texts'
+    })
     
     if (enhancedQuery && enhancedQuery.answer) {
       // Extract the enhanced terms from Perplexity response
