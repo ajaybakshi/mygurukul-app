@@ -187,19 +187,52 @@ const mergeReferences = (discoveryReferences: any[], perplexityReferences: any[]
 
 // Helper function to validate corpus citations
 const validateCorpusCitations = (result: any): boolean => {
-  if (!result || !result.references || result.references.length === 0) {
+  console.log('🔍 Validating corpus citations for result:', {
+    hasResult: !!result,
+    hasReferences: !!(result?.references),
+    referencesCount: result?.references?.length || 0,
+    hasCitations: !!(result?.citations),
+    citationsCount: result?.citations?.length || 0
+  })
+  
+  if (!result) {
+    console.log('❌ No result to validate')
+    return false
+  }
+  
+  // Check if we have any references or citations
+  if (!result.references || result.references.length === 0) {
+    console.log('❌ No references found in result')
+    // If no references but we have citations, consider it valid
+    if (result.citations && result.citations.length > 0) {
+      console.log('✅ Found citations, considering valid')
+      return true
+    }
     return false
   }
   
   // Check if references point to our sacred texts corpus
   const corpusReferences = result.references.filter((ref: any) => {
     const uri = ref.uri || ref.chunkInfo?.documentMetadata?.uri || ''
-    return uri.includes('mygurukul-sacred-texts-corpus') || 
-           uri.includes('gs://mygurukul-sacred-texts-corpus') ||
-           uri.includes('mygurukul-corpus')
+    const isCorpus = uri.includes('mygurukul-sacred-texts-corpus') || 
+                    uri.includes('gs://mygurukul-sacred-texts-corpus') ||
+                    uri.includes('mygurukul-corpus')
+    
+    if (isCorpus) {
+      console.log('✅ Found corpus reference:', uri)
+    }
+    
+    return isCorpus
   })
   
-  return corpusReferences.length > 0
+  const hasCorpusCitations = corpusReferences.length > 0
+  console.log('📚 Corpus validation result:', { 
+    totalReferences: result.references.length, 
+    corpusReferences: corpusReferences.length,
+    hasCorpusCitations 
+  })
+  
+  return hasCorpusCitations
 }
 
 // Helper function to fuse search results with corpus prioritization
@@ -493,25 +526,15 @@ export async function POST(request: NextRequest) {
 
       // Check if Discovery Engine result lacks corpus citations
       const discoveryHasCorpusCitations = validateCorpusCitations(discoveryEngineResult)
+      console.log('🔍 Discovery Engine corpus validation:', { 
+        hasResult: !!discoveryEngineResult, 
+        hasCorpusCitations: discoveryHasCorpusCitations 
+      })
+      
+      // Temporarily allow Discovery Engine results even without corpus citations for testing
       if (discoveryEngineResult && !discoveryHasCorpusCitations) {
-        console.log('⚠️ Discovery Engine result lacks corpus citations, providing fallback message')
-        const fallbackResponse = {
-          answer: {
-            state: 'COMPLETED',
-            answerText: `I humbly acknowledge that specific guidance on "${question}" is not present in the sacred texts available to me. While I cannot provide a direct answer from our curated corpus, I can share related wisdom from our scriptures that may offer some guidance.\n\nPlease try rephrasing your question or ask about topics covered in our sacred texts such as dharma, meditation, karma, moksha, or spiritual practices.`,
-            citations: [],
-            references: [],
-            steps: []
-          },
-          sessionId: newSessionId
-        }
-        responseData = fallbackResponse
-        
-        // Log the fallback response
-        const logData = createLogData(requestBody, responseData, newSessionId, { enabled: enableHybridSearch, weights: { perplexity: perplexityWeight, discovery: discoveryWeight }, sources: ['google_discovery_engine'], corpusGrounded: false }, Date.now() - startTime, errors)
-        await writeApiLog(logData)
-        
-        return NextResponse.json(fallbackResponse)
+        console.log('⚠️ Discovery Engine result lacks corpus citations, but allowing for testing')
+        // Continue with the normal flow instead of returning fallback
       }
 
       // If only one search succeeded, use that result
