@@ -108,7 +108,7 @@ export interface PerplexitySearchResponse {
 }
 
 export interface PerplexitySearchOptions {
-  model?: 'sonar-small' | 'sonar-medium' | 'sonar-large' | 'pplx-7b-online' | 'pplx-70b-online' | 'pplx-7b-chat' | 'pplx-70b-chat'
+  model?: 'sonar' | 'sonar-small' | 'sonar-medium' | 'sonar-large' | 'pplx-7b-online' | 'pplx-70b-online' | 'pplx-7b-chat' | 'pplx-70b-chat'
   maxResults?: number
   includeSpiritualContext?: boolean
   searchFocus?: 'spiritual_texts' | 'general' | 'hybrid'
@@ -386,7 +386,7 @@ export async function perplexitySearch(
     const spiritualPrompt = createSpiritualContextPrompt(query)
     
     // Configure Perplexity client
-    const model = options.model || 'sonar-medium'
+    const model = options.model || 'sonar'
     const maxResults = options.maxResults || 10
     
     console.log('🤖 Using Perplexity model:', model)
@@ -508,7 +508,7 @@ export async function testPerplexityConnection(): Promise<boolean> {
     
     // Simple test request
     const testRequest: PerplexityRequest = {
-      model: 'sonar-small',
+      model: 'sonar',
       messages: [
         {
           role: 'user',
@@ -537,7 +537,7 @@ export const PERPLEXITY_CONFIG = {
   apiEndpoint: PERPLEXITY_API_ENDPOINT,
   enabled: ENABLE_PERPLEXITY_SEARCH,
   searchWeight: PERPLEXITY_SEARCH_WEIGHT,
-  defaultModel: 'sonar-medium' as const,
+  defaultModel: 'sonar' as const,
   maxResults: 10,
   timeout: 30000
 } as const

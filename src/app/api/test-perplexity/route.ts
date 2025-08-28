@@ -24,10 +24,10 @@ export async function GET(request: NextRequest) {
       testResults.error = `Connection test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     }
     
-    // Test 2: Mock Search Test (Real API integration in progress)
+    // Test 2: Real Perplexity API Test
     try {
-      // Use mock mode for now while researching correct model names
-      process.env.USE_MOCK_PERPLEXITY = 'true'
+      // Test real Perplexity API with correct model name
+      process.env.USE_MOCK_PERPLEXITY = 'false'
       
       const mockResult = await perplexitySearch('How can I find inner peace?', {
         model: 'sonar-medium-online',
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
           url: mockResult.results[0].url,
           snippet: mockResult.results[0].snippet.substring(0, 100) + '...'
         } : null,
-        isRealAPI: false
+        isRealAPI: true
       }
     } catch (error) {
       testResults.mockSearch = {
@@ -89,8 +89,8 @@ export async function POST(request: NextRequest) {
     
     console.log('🔍 Perplexity Search Request:', { query, options })
     
-    // Use mock mode for now while researching correct model names
-    process.env.USE_MOCK_PERPLEXITY = 'true'
+    // Use real Perplexity API with correct model name
+    process.env.USE_MOCK_PERPLEXITY = 'false'
     
     const result = await perplexitySearch(query, options)
     
