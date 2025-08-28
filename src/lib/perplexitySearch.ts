@@ -128,7 +128,7 @@ export class PerplexitySearchError extends Error {
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY
 const PERPLEXITY_API_ENDPOINT = 'https://api.perplexity.ai/chat/completions'
 const ENABLE_PERPLEXITY_SEARCH = process.env.ENABLE_PERPLEXITY_SEARCH === 'true'
-const PERPLEXITY_SEARCH_WEIGHT = parseFloat(process.env.PERPLEXITY_SEARCH_WEIGHT || '0.7')
+const PERPLEXITY_SEARCH_WEIGHT = parseFloat(process.env.PERPLEXITY_SEARCH_WEIGHT || '0.15')
 
 // ============================================================================
 // UTILITY FUNCTIONS
