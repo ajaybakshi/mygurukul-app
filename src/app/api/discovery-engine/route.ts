@@ -233,16 +233,51 @@ const validateCorpusContent = (result: any): { isValid: boolean; confidence: num
     return { isValid: false, confidence: 0, reason: 'No result to validate' }
   }
   
-  const answer = (result.answer || result.choices?.[0]?.message?.content || '').toString()
+  // Extract answer text from various possible structures
+  let answer = ''
+  if (result.answer) {
+    answer = result.answer.toString()
+  } else if (result.choices && result.choices[0] && result.choices[0].message) {
+    answer = result.choices[0].message.content.toString()
+  } else if (result.answerText) {
+    answer = result.answerText.toString()
+  } else if (typeof result === 'string') {
+    answer = result.toString()
+  } else {
+    // If we can't extract text, check if we have any content at all
+    answer = JSON.stringify(result).substring(0, 500)
+  }
+  
   let confidence = 0
   let reasons: string[] = []
   
-  // Check for spiritual keywords and themes
+  // MUCH MORE TOLERANT: Accept any response with substantial content
+  if (answer.length > 100) {
+    confidence += 0.4
+    reasons.push(`Substantial content length: ${answer.length} characters`)
+  }
+  
+  // Check for spiritual keywords and themes (expanded list)
   const spiritualKeywords = [
-    'dharma', 'karma', 'moksha', 'meditation', 'vedas', 'upanishads', 'bhagavad gita',
-    'spiritual', 'sacred', 'divine', 'soul', 'consciousness', 'enlightenment',
-    'sanskrit', 'yoga', 'mantra', 'puja', 'sadhana', 'guru', 'shastra',
-    'purana', 'vedanta', 'sankhya', 'nyaya', 'mimamsa', 'vaisheshika'
+    // Core concepts
+    'dharma', 'karma', 'moksha', 'atman', 'brahman', 'meditation', 'enlightenment',
+    'vedas', 'upanishads', 'bhagavad gita', 'vedanta', 'yoga', 'sanskrit',
+    
+    // Spiritual practices
+    'spiritual', 'sacred', 'divine', 'soul', 'consciousness', 'liberation',
+    'mantra', 'puja', 'sadhana', 'guru', 'shastra', 'purana',
+    
+    // Philosophical schools
+    'sankhya', 'nyaya', 'mimamsa', 'vaisheshika', 'advaita', 'dvaita',
+    
+    // Classical texts and authors
+    'chandogya', 'mundaka', 'taittiriya', 'brihadaranyaka', 'katha', 'kena',
+    'mandukya', 'prasna', 'svetasvatara', 'aitareya', 'isavasya',
+    'manu smriti', 'parashara', 'yajnavalkya', 'patanjali',
+    
+    // Religious concepts
+    'religion', 'philosophy', 'wisdom', 'knowledge', 'truth', 'virtue',
+    'self-realization', 'self-knowledge', 'divine knowledge'
   ]
   
   const foundKeywords = spiritualKeywords.filter(keyword => 
@@ -254,18 +289,18 @@ const validateCorpusContent = (result: any): { isValid: boolean; confidence: num
     reasons.push(`Found spiritual keywords: ${foundKeywords.join(', ')}`)
   }
   
-  // Check for citations/references
+  // Check for citations/references (more lenient)
   if (result.citations && result.citations.length > 0) {
-    confidence += 0.4
+    confidence += 0.2
     reasons.push(`Has ${result.citations.length} citations`)
   }
   
   if (result.references && result.references.length > 0) {
-    confidence += 0.3
+    confidence += 0.2
     reasons.push(`Has ${result.references.length} references`)
   }
   
-  // Check for corpus-specific references
+  // Check for corpus-specific references (more lenient)
   if (result.references && result.references.length > 0) {
     const corpusReferences = result.references.filter((ref: any) => {
       const uri = ref.uri || ref.chunkInfo?.documentMetadata?.uri || ''
@@ -275,25 +310,34 @@ const validateCorpusContent = (result: any): { isValid: boolean; confidence: num
     })
     
     if (corpusReferences.length > 0) {
-      confidence += 0.4
+      confidence += 0.3
       reasons.push(`Has ${corpusReferences.length} corpus references`)
     }
   }
   
-  // Check content quality
-  if (answer.length > 200) {
-    confidence += 0.2
-    reasons.push('Substantial content length')
+  // Check for search results in the response (Discovery Engine structure)
+  if (result.searchResults && result.searchResults.length > 0) {
+    confidence += 0.3
+    reasons.push(`Has ${result.searchResults.length} search results`)
   }
   
-  const isValid = confidence >= 0.5
+  // Check for answer generation spec or other Discovery Engine indicators
+  if (result.answerGenerationSpec || result.answerQueryToken) {
+    confidence += 0.2
+    reasons.push('Discovery Engine response structure detected')
+  }
+  
+  // MUCH MORE TOLERANT: Default to acceptance unless clearly empty or irrelevant
+  const isValid = confidence >= 0.2 || answer.length > 200
   const reason = reasons.join('; ')
   
   console.log('📊 Content validation result:', {
     confidence,
     isValid,
     reason,
-    answerLength: answer.length
+    answerLength: answer.length,
+    hasSearchResults: !!(result.searchResults && result.searchResults.length > 0),
+    hasAnswerGenerationSpec: !!result.answerGenerationSpec
   })
   
   return { isValid, confidence, reason }
@@ -496,8 +540,8 @@ export async function POST(request: NextRequest) {
           }
         })
         
-        // Step 3: Handle response based on validation confidence
-        if (validation.isValid && validation.confidence >= 0.7) {
+        // Step 3: Handle response based on validation confidence (MUCH MORE TOLERANT)
+        if (validation.isValid && validation.confidence >= 0.5) {
           // High confidence - return Discovery Engine result directly
           console.log('✅ High confidence result, returning Discovery Engine response')
           responseData = {
@@ -510,14 +554,28 @@ export async function POST(request: NextRequest) {
             },
             sessionId: newSessionId
           }
-        } else if (validation.isValid && validation.confidence >= 0.5) {
-          // Medium confidence - return with suggestion to rephrase
-          console.log('⚠️ Medium confidence result, returning with rephrase suggestion')
+        } else if (validation.isValid && validation.confidence >= 0.3) {
+          // Medium confidence - return with gentle suggestion
+          console.log('⚠️ Medium confidence result, returning with gentle suggestion')
           const answerText = discoveryResult.answer || discoveryResult.choices?.[0]?.message?.content || ''
           responseData = {
             answer: {
               state: 'COMPLETED',
-              answerText: `${answerText}\n\n💡 **Suggestion**: For more specific guidance, try rephrasing your question or ask about related spiritual topics.`,
+              answerText: `${answerText}\n\n💡 **Tip**: For even more detailed guidance, try asking about specific aspects or rephrasing your question.`,
+              citations: discoveryResult.citations || [],
+              references: discoveryResult.references || [],
+              steps: discoveryResult.steps || []
+            },
+            sessionId: newSessionId
+          }
+        } else if (validation.isValid && validation.confidence >= 0.1) {
+          // Low confidence but still valid - return with disclaimer
+          console.log('⚠️ Low confidence but valid result, returning with disclaimer')
+          const answerText = discoveryResult.answer || discoveryResult.choices?.[0]?.message?.content || ''
+          responseData = {
+            answer: {
+              state: 'COMPLETED',
+              answerText: `${answerText}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
               citations: discoveryResult.citations || [],
               references: discoveryResult.references || [],
               steps: discoveryResult.steps || []
@@ -525,8 +583,8 @@ export async function POST(request: NextRequest) {
             sessionId: newSessionId
           }
         } else {
-          // Low confidence - provide fallback with rephrasing guidance
-          console.log('❌ Low confidence result, providing fallback with rephrasing guidance')
+          // Very low confidence - provide fallback with rephrasing guidance
+          console.log('❌ Very low confidence result, providing fallback with rephrasing guidance')
           responseData = {
             answer: {
               state: 'COMPLETED',
@@ -565,8 +623,9 @@ export async function POST(request: NextRequest) {
           // Validate the result with confidence scoring
           const validation = validateCorpusContent(result)
           
-          // Handle response based on validation confidence
-          if (validation.isValid && validation.confidence >= 0.5) {
+          // Handle response based on validation confidence (MUCH MORE TOLERANT)
+          if (validation.isValid && validation.confidence >= 0.3) {
+            // Accept medium confidence and above
             responseData = {
               answer: {
                 state: 'COMPLETED',
@@ -577,7 +636,21 @@ export async function POST(request: NextRequest) {
               },
               sessionId: newSessionId
             };
+          } else if (validation.isValid && validation.confidence >= 0.1) {
+            // Low confidence but still valid - return with disclaimer
+            const answerText = result.answer || result.choices?.[0]?.message?.content || ''
+            responseData = {
+              answer: {
+                state: 'COMPLETED',
+                answerText: `${answerText}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
+                citations: result.citations || [],
+                references: result.references || [],
+                steps: result.steps || []
+              },
+              sessionId: newSessionId
+            };
           } else {
+            // Very low confidence - provide fallback with rephrasing guidance
             responseData = {
               answer: {
                 state: 'COMPLETED',
@@ -637,9 +710,9 @@ export async function POST(request: NextRequest) {
           reason: validation.reason
         })
         
-        // Handle response based on validation confidence
-        if (validation.isValid && validation.confidence >= 0.5) {
-          // Valid result - return Discovery Engine response
+        // Handle response based on validation confidence (MUCH MORE TOLERANT)
+        if (validation.isValid && validation.confidence >= 0.3) {
+          // Accept medium confidence and above
           responseData = {
             answer: {
               state: 'COMPLETED',
@@ -650,8 +723,21 @@ export async function POST(request: NextRequest) {
             },
             sessionId: newSessionId
           };
+        } else if (validation.isValid && validation.confidence >= 0.1) {
+          // Low confidence but still valid - return with disclaimer
+          const answerText = result.answer || result.choices?.[0]?.message?.content || ''
+          responseData = {
+            answer: {
+              state: 'COMPLETED',
+              answerText: `${answerText}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
+              citations: result.citations || [],
+              references: result.references || [],
+              steps: result.steps || []
+            },
+            sessionId: newSessionId
+          };
         } else {
-          // Low confidence - provide fallback with rephrasing guidance
+          // Very low confidence - provide fallback with rephrasing guidance
           responseData = {
             answer: {
               state: 'COMPLETED',
