@@ -16,10 +16,19 @@ export default function SubmitPage() {
   const [aiError, setAiError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [showValidationError, setShowValidationError] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!question.trim()) return
+    if (!question.trim()) {
+      // Provide user feedback when trying to submit empty question
+      console.log('⚠️ Cannot submit empty question')
+      setShowValidationError(true)
+      setTimeout(() => setShowValidationError(false), 3000) // Hide after 3 seconds
+      return
+    }
+    
+    setShowValidationError(false) // Clear any previous validation errors
 
     setIsSubmitting(true)
     setIsLoadingAI(true)
@@ -190,7 +199,10 @@ export default function SubmitPage() {
             </div>
             <textarea
               value={question}
-              onChange={(e) => setQuestion(e.target.value)}
+              onChange={(e) => {
+                setQuestion(e.target.value)
+                setShowValidationError(false) // Clear validation error when user types
+              }}
               placeholder="Share your spiritual question or concern..."
               className="w-full p-5 border border-premium rounded-xl bg-white text-spiritual-950 placeholder-spiritual-500 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent resize-none transition-all duration-200 hover:border-premium-hover hover:shadow-md text-premium-base leading-relaxed"
               rows={6}
@@ -204,8 +216,16 @@ export default function SubmitPage() {
           {/* Ask for Guidance Button - Immediately below question input */}
           <button
             type="submit"
-            disabled={isSubmitting || !question.trim()}
-            className="w-full button-primary-spiritual disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:transform-none"
+            disabled={isSubmitting}
+            className={`w-full button-primary-spiritual transition-all duration-200 ${
+              !question.trim() 
+                ? 'opacity-60 cursor-not-allowed bg-gray-400 hover:bg-gray-400 hover:transform-none' 
+                : 'cursor-pointer hover:bg-spiritual-600 hover:transform hover:scale-105'
+            } ${
+              isSubmitting 
+                ? 'opacity-75 cursor-wait' 
+                : ''
+            }`}
           >
             {isSubmitting ? (
               <div className="flex items-center justify-center space-x-3">
@@ -219,6 +239,13 @@ export default function SubmitPage() {
               </div>
             )}
           </button>
+          
+          {/* Validation Error Message */}
+          {showValidationError && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm text-center animate-pulse">
+              Please enter your question before seeking guidance.
+            </div>
+          )}
         </form>
 
         {/* AI Response */}
