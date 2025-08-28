@@ -233,7 +233,7 @@ const validateCorpusContent = (result: any): { isValid: boolean; confidence: num
     return { isValid: false, confidence: 0, reason: 'No result to validate' }
   }
   
-  const answer = result.answer || result.choices?.[0]?.message?.content || ''
+  const answer = (result.answer || result.choices?.[0]?.message?.content || '').toString()
   let confidence = 0
   let reasons: string[] = []
   
@@ -558,6 +558,67 @@ export async function POST(request: NextRequest) {
         console.log('❌ Query enhancement pattern failed:', error)
         // Fallback to Discovery Engine only
         console.log('🔄 Falling back to Discovery Engine only...')
+        try {
+          const result = await executeDiscoveryEngineSearch(question, accessToken.token!, apiEndpoint!, googleSessionPath || undefined)
+          console.log('✅ Discovery Engine fallback search completed')
+          
+          // Validate the result with confidence scoring
+          const validation = validateCorpusContent(result)
+          
+          // Handle response based on validation confidence
+          if (validation.isValid && validation.confidence >= 0.5) {
+            responseData = {
+              answer: {
+                state: 'COMPLETED',
+                answerText: result.answer || result.choices?.[0]?.message?.content || '',
+                citations: result.citations || [],
+                references: result.references || [],
+                steps: result.steps || []
+              },
+              sessionId: newSessionId
+            };
+          } else {
+            responseData = {
+              answer: {
+                state: 'COMPLETED',
+                answerText: `I humbly acknowledge that specific guidance on "${question}" is not present in the sacred texts available to me.\n\n💡 **Suggestions for rephrasing**:\n• Try asking about general spiritual concepts like dharma, karma, meditation, or moksha\n• Ask about specific practices like yoga, prayer, or spiritual disciplines\n• Inquire about spiritual stories or teachings from our sacred texts\n• Focus on universal spiritual principles rather than specific modern situations\n\nPlease try rephrasing your question to explore the wisdom available in our curated corpus.`,
+                citations: [],
+                references: [],
+                steps: []
+              },
+              sessionId: newSessionId
+            };
+          }
+
+          console.log('📤 Returning Discovery Engine fallback response')
+          
+          // Log the fallback response
+          const logData = createLogData(requestBody, responseData, newSessionId, { 
+            enabled: enableHybridSearch, 
+            weights: { perplexity: 0, discovery: 1 }, 
+            sources: ['google_discovery_engine'],
+            validation: {
+              isValid: validation.isValid,
+              confidence: validation.confidence,
+              reason: validation.reason
+            }
+          }, Date.now() - startTime, errors)
+          await writeApiLog(logData)
+          
+          return NextResponse.json(responseData)
+          
+        } catch (fallbackError) {
+          console.log('❌ Discovery Engine fallback also failed:', fallbackError)
+          const errorResponse = { error: 'Search failed. Please try again.' }
+          responseData = errorResponse
+          errors.push(`Discovery Engine fallback error: ${fallbackError}`)
+          
+          // Log the error response
+          const logData = createLogData(requestBody, responseData, newSessionId, { enabled: enableHybridSearch, weights: { perplexity: 0, discovery: 1 }, sources: ['google_discovery_engine'] }, Date.now() - startTime, errors)
+          await writeApiLog(logData)
+          
+          return NextResponse.json(errorResponse, { status: 500 })
+        }
       }
     } else {
       // Fallback to Discovery Engine only
