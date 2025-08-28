@@ -243,6 +243,28 @@ const validateCorpusContent = (result: any): { isValid: boolean; confidence: num
     answer = result.answerText.toString()
   } else if (typeof result === 'string') {
     answer = result.toString()
+  } else if (result.answerGenerationSpec) {
+    // This is a Discovery Engine response - extract from the structure
+    if (result.answer && result.answer.answerText) {
+      answer = result.answer.answerText.toString()
+    } else if (result.answer && typeof result.answer === 'string') {
+      answer = result.answer.toString()
+    } else {
+      // Try to extract from search results if available
+      if (result.searchResults && result.searchResults.length > 0) {
+        const searchResultTexts = result.searchResults.map((sr: any) => {
+          if (sr.observation && sr.observation.searchResults) {
+            return sr.observation.searchResults.map((doc: any) => 
+              doc.snippetInfo?.map((snippet: any) => snippet.snippet).join(' ') || ''
+            ).join(' ')
+          }
+          return ''
+        }).join(' ')
+        answer = searchResultTexts || 'Discovery Engine response with search results'
+      } else {
+        answer = 'Discovery Engine response received'
+      }
+    }
   } else {
     // If we can't extract text, check if we have any content at all
     answer = JSON.stringify(result).substring(0, 500)
@@ -547,7 +569,7 @@ export async function POST(request: NextRequest) {
           responseData = {
             answer: {
               state: 'COMPLETED',
-              answerText: discoveryResult.answer || discoveryResult.choices?.[0]?.message?.content || '',
+              answerText: discoveryResult.answer?.answerText || discoveryResult.answer || discoveryResult.choices?.[0]?.message?.content || '',
               citations: discoveryResult.citations || [],
               references: discoveryResult.references || [],
               steps: discoveryResult.steps || []
@@ -557,7 +579,7 @@ export async function POST(request: NextRequest) {
         } else if (validation.isValid && validation.confidence >= 0.3) {
           // Medium confidence - return with gentle suggestion
           console.log('⚠️ Medium confidence result, returning with gentle suggestion')
-          const answerText = discoveryResult.answer || discoveryResult.choices?.[0]?.message?.content || ''
+          const answerText = discoveryResult.answer?.answerText || discoveryResult.answer || discoveryResult.choices?.[0]?.message?.content || ''
           responseData = {
             answer: {
               state: 'COMPLETED',
@@ -571,7 +593,7 @@ export async function POST(request: NextRequest) {
         } else if (validation.isValid && validation.confidence >= 0.1) {
           // Low confidence but still valid - return with disclaimer
           console.log('⚠️ Low confidence but valid result, returning with disclaimer')
-          const answerText = discoveryResult.answer || discoveryResult.choices?.[0]?.message?.content || ''
+          const answerText = discoveryResult.answer?.answerText || discoveryResult.answer || discoveryResult.choices?.[0]?.message?.content || ''
           responseData = {
             answer: {
               state: 'COMPLETED',
@@ -629,7 +651,7 @@ export async function POST(request: NextRequest) {
             responseData = {
               answer: {
                 state: 'COMPLETED',
-                answerText: result.answer || result.choices?.[0]?.message?.content || '',
+                answerText: result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || '',
                 citations: result.citations || [],
                 references: result.references || [],
                 steps: result.steps || []
@@ -638,7 +660,7 @@ export async function POST(request: NextRequest) {
             };
           } else if (validation.isValid && validation.confidence >= 0.1) {
             // Low confidence but still valid - return with disclaimer
-            const answerText = result.answer || result.choices?.[0]?.message?.content || ''
+            const answerText = result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || ''
             responseData = {
               answer: {
                 state: 'COMPLETED',
@@ -716,7 +738,7 @@ export async function POST(request: NextRequest) {
           responseData = {
             answer: {
               state: 'COMPLETED',
-              answerText: result.answer || result.choices?.[0]?.message?.content || '',
+              answerText: result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || '',
               citations: result.citations || [],
               references: result.references || [],
               steps: result.steps || []
@@ -725,7 +747,7 @@ export async function POST(request: NextRequest) {
           };
         } else if (validation.isValid && validation.confidence >= 0.1) {
           // Low confidence but still valid - return with disclaimer
-          const answerText = result.answer || result.choices?.[0]?.message?.content || ''
+                      const answerText = result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || ''
           responseData = {
             answer: {
               state: 'COMPLETED',
