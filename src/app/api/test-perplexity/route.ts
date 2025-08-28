@@ -24,9 +24,9 @@ export async function GET(request: NextRequest) {
       testResults.error = `Connection test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     }
     
-    // Test 2: Mock Search Test
+    // Test 2: Mock Search Test (Real API integration in progress)
     try {
-      // Set environment variable for mock testing
+      // Use mock mode for now while refining real API integration
       process.env.USE_MOCK_PERPLEXITY = 'true'
       
       const mockResult = await perplexitySearch('How can I find inner peace?', {
@@ -46,7 +46,8 @@ export async function GET(request: NextRequest) {
           title: mockResult.results[0].title,
           url: mockResult.results[0].url,
           snippet: mockResult.results[0].snippet.substring(0, 100) + '...'
-        } : null
+        } : null,
+        isRealAPI: false
       }
     } catch (error) {
       testResults.mockSearch = {
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     
     console.log('🔍 Perplexity Search Request:', { query, options })
     
-    // Set mock mode for testing
+    // Use mock mode for now
     process.env.USE_MOCK_PERPLEXITY = 'true'
     
     const result = await perplexitySearch(query, options)

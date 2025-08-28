@@ -1,4 +1,4 @@
-import { perplexity } from '@ai-sdk/perplexity'
+import { createPerplexity } from '@ai-sdk/perplexity'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -263,8 +263,13 @@ export async function perplexitySearch(
     console.log('🤖 Using Perplexity model:', model)
     console.log('📊 Max results:', maxResults)
     
+    // Create Perplexity client
+    const perplexityClient = createPerplexity({
+      apiKey: PERPLEXITY_API_KEY!
+    })
+    
     // Perform the search using Perplexity
-    const response = await perplexity.generateText({
+    const response = await perplexityClient.generateText({
       model,
       prompt: `${spiritualPrompt}\n\nSearch Query: ${enhancedQuery}\n\nPlease provide a comprehensive spiritual response with relevant citations and sources.`,
       maxTokens: 2000,
@@ -350,8 +355,13 @@ export async function testPerplexityConnection(): Promise<boolean> {
     validateConfiguration()
     console.log('🔗 Testing Perplexity API connection...')
     
+    // Create Perplexity client
+    const perplexityClient = createPerplexity({
+      apiKey: PERPLEXITY_API_KEY!
+    })
+    
     // Simple test query
-    const testResponse = await perplexity.generateText({
+    const testResponse = await perplexityClient.generateText({
       model: 'sonar-small-online',
       prompt: 'Test connection',
       maxTokens: 10
