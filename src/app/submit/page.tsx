@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, ArrowLeft } from 'lucide-react'
+import { Send, ArrowLeft, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { callDiscoveryEngine, DiscoveryEngineResponse, DiscoveryEngineError } from '@/lib/discoveryEngine'
 import AIResponse from '@/components/AIResponse'
@@ -15,6 +15,14 @@ export default function SubmitPage() {
   const [isLoadingAI, setIsLoadingAI] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+
+  const handleNewConversation = () => {
+    setSessionId(null)
+    setAiResponse(null)
+    setAiError(null)
+    setQuestion('')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,11 +34,17 @@ export default function SubmitPage() {
     setAiResponse(null)
 
     try {
-      const response = await callDiscoveryEngine(question)
+      const response = await callDiscoveryEngine(question, sessionId || undefined)
       setAiResponse(response)
+      // Extract session ID from response if available
+      if (response.sessionId && !sessionId) {
+        setSessionId(response.sessionId)
+      }
     } catch (error) {
       if (error instanceof DiscoveryEngineError) {
         setAiError(error.message)
+        // Clear session on error
+        setSessionId(null)
       } else if (error instanceof Error) {
         setAiError(error.message)
       } else {
@@ -123,13 +137,41 @@ export default function SubmitPage() {
             <p className="text-premium-lg text-spiritual-700 max-w-2xl mx-auto leading-relaxed">
               Seek wisdom from ancient spiritual texts and receive AI-powered guidance.
             </p>
+            
+            {/* Session Status Indicator */}
+            {sessionId && (
+              <div className="text-center mt-4">
+                <div className="inline-flex items-center bg-gradient-to-r from-amber-50 to-amber-100/50 px-4 py-2 rounded-full border border-amber-200/50 shadow-sm">
+                  <span className="w-3 h-3 bg-amber-500 rounded-full mr-3 animate-gentlePulse"></span>
+                  <span className="text-premium-base text-spiritual-700 font-medium">
+                    Continuing conversation
+                  </span>
+                  <span className="ml-2 text-premium-sm text-spiritual-500">
+                    ({sessionId.length > 20 ? `${sessionId.substring(0, 8)}...` : sessionId})
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
             <CategoryDropdown />
 
             <div className="bg-premium-card border border-premium rounded-xl p-6 sm:p-8 premium-shadow">
-              <label className="block text-premium-lg font-semibold text-spiritual-950 mb-4">Your Question</label>
+              <div className="flex items-center justify-between mb-4">
+                <label className="block text-premium-lg font-semibold text-spiritual-950">Your Question</label>
+                {/* New Conversation Button - Only show when there's an active session */}
+                {sessionId && (
+                  <button
+                    onClick={handleNewConversation}
+                    className="flex items-center text-amber-600 hover:text-amber-700 transition-all duration-200 p-2 rounded-lg border border-transparent hover:border-amber-200 hover:bg-amber-50/30"
+                    title="Start a fresh conversation"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                    <span className="text-premium-sm font-medium">New</span>
+                  </button>
+                )}
+              </div>
               <textarea
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}

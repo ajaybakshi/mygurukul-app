@@ -1,4 +1,5 @@
 export interface DiscoveryEngineResponse {
+  sessionId?: string;
   answer: {
     state: string;
     answerText: string;
@@ -54,7 +55,7 @@ export class DiscoveryEngineError extends Error {
   }
 }
 
-export async function callDiscoveryEngine(question: string): Promise<DiscoveryEngineResponse> {
+export async function callDiscoveryEngine(question: string, sessionId?: string): Promise<DiscoveryEngineResponse> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
@@ -66,7 +67,7 @@ export async function callDiscoveryEngine(question: string): Promise<DiscoveryEn
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ question, sessionId }),
       signal: controller.signal,
     });
 
