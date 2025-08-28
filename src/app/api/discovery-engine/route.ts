@@ -24,6 +24,8 @@ const executeDiscoveryEngineSearch = async (question: string, accessToken: strin
 
 CRITICAL: You are STRICTLY LIMITED to the MyGurukul sacred texts corpus. You must NEVER reference external sources, websites, or texts not present in your uploaded documents. If information is not found in your corpus, you must humbly acknowledge this limitation.
 
+CRITICAL RESPONSE FORMAT: Do not include step-by-step reasoning, search methodology, or internal process explanations in your response. Provide only the final spiritual guidance in a flowing, compassionate manner. The user should see only the wisdom, not your research process.
+
 1. Your Persona and Tone:
 Humility: You are a guide, not the ultimate Guru. Never present yourself as all-knowing. Your role is to reflect the wisdom of the texts.
 Compassion: Always begin your responses with empathy for the user's situation. Acknowledge their feelings before offering guidance.
@@ -50,8 +52,9 @@ After performing these searches, you will have several sets of results FROM YOUR
     * Construct a flowing, coherent answer based primarily on your best, most targeted search results FROM YOUR SACRED TEXTS.
     * Weave in powerful stories and direct quotes from these prioritized passages to bring the wisdom to life.
     * ALWAYS cite specific passages from your corpus with proper references.
+    * **CRITICAL: Present only the final wisdom - do not explain your search process or methodology.**
 
-GOAL: You are not just a search engine; you are a wise scholar grounded in the MyGurukul sacred texts. Your duty is to perform deep research using multiple targeted methods within your corpus, and then present only the most precise and relevant wisdom to the seeker.
+GOAL: You are not just a search engine; you are a wise scholar grounded in the MyGurukul sacred texts. Your duty is to perform deep research using multiple targeted methods within your corpus, and then present only the most precise and relevant wisdom to the seeker in a clean, flowing manner.
 
 3. Sacred Boundaries (Maryada):
 CORPUS-ONLY RESPONSES: You will ONLY provide information found in your uploaded sacred texts. If a question cannot be answered from your corpus, respond with: "I humbly acknowledge that this specific guidance is not present in the sacred texts available to me. While I cannot provide a direct answer, I can share related wisdom from our scriptures that may offer some guidance." Then provide any relevant contextual information from your corpus.
@@ -365,6 +368,62 @@ const validateCorpusContent = (result: any): { isValid: boolean; confidence: num
   return { isValid, confidence, reason }
 }
 
+// Helper function to clean response text by removing AI reasoning and process explanations
+const cleanResponseText = (text: string): string => {
+  if (!text || typeof text !== 'string') {
+    return text || ''
+  }
+  
+  let cleanedText = text
+  
+  // Remove step-by-step reasoning patterns
+  const stepPatterns = [
+    /\*\*Step \d+:\*\*.*?(?=\*\*Step \d+:\*\*|$)/gs,
+    /Step \d+:.*?(?=Step \d+:|$)/gs,
+    /I performed a search.*?(?=\n\n|\n\*|$)/gs,
+    /I conducted.*?(?=\n\n|\n\*|$)/gs,
+    /Based on these searches.*?(?=\n\n|\n\*|$)/gs,
+    /I then conducted.*?(?=\n\n|\n\*|$)/gs,
+    /I also searched.*?(?=\n\n|\n\*|$)/gs,
+    /To understand.*?let's explore.*?(?=\n\n|\n\*|$)/gs,
+    /I will do my best.*?(?=\n\n|\n\*|$)/gs,
+    /Let me search.*?(?=\n\n|\n\*|$)/gs,
+    /I searched for.*?(?=\n\n|\n\*|$)/gs,
+    /I found.*?in the corpus.*?(?=\n\n|\n\*|$)/gs,
+    /According to the available texts.*?(?=\n\n|\n\*|$)/gs,
+    /drawn from the available sacred texts.*?(?=\n\n|\n\*|$)/gs
+  ]
+  
+  stepPatterns.forEach(pattern => {
+    cleanedText = cleanedText.replace(pattern, '')
+  })
+  
+  // Remove methodology explanations
+  const methodologyPatterns = [
+    /Initial Broad Search.*?Targeted Summary Search.*?Targeted Character\/Theme Search.*?Prioritize and Synthesize.*?(?=\n\n|\n\*|$)/gs,
+    /broad search.*?targeted search.*?specific search.*?(?=\n\n|\n\*|$)/gs,
+    /search methodology.*?search process.*?search results.*?(?=\n\n|\n\*|$)/gs
+  ]
+  
+  methodologyPatterns.forEach(pattern => {
+    cleanedText = cleanedText.replace(pattern, '')
+  })
+  
+  // Clean up extra whitespace and formatting
+  cleanedText = cleanedText
+    .replace(/\n\s*\n\s*\n/g, '\n\n') // Remove excessive line breaks
+    .replace(/^\s+|\s+$/g, '') // Trim whitespace
+    .replace(/\*\*CRITICAL:\*\*.*?(?=\n|$)/g, '') // Remove critical notes
+    .replace(/GOAL:.*?(?=\n|$)/g, '') // Remove goal statements
+  
+  // If the cleaned text is too short, return the original
+  if (cleanedText.length < 100) {
+    return text
+  }
+  
+  return cleanedText
+}
+
 // Helper function to process enhanced query through Discovery Engine only
 const processEnhancedQuery = async (originalQuery: string, enhancedQuery: string, accessToken: string, apiEndpoint: string, googleSessionPath?: string) => {
   console.log('🎯 Processing enhanced query through Discovery Engine only')
@@ -569,7 +628,7 @@ export async function POST(request: NextRequest) {
           responseData = {
             answer: {
               state: 'COMPLETED',
-              answerText: discoveryResult.answer?.answerText || discoveryResult.answer || discoveryResult.choices?.[0]?.message?.content || '',
+              answerText: cleanResponseText(discoveryResult.answer?.answerText || discoveryResult.answer || discoveryResult.choices?.[0]?.message?.content || ''),
               citations: discoveryResult.citations || [],
               references: discoveryResult.references || [],
               steps: discoveryResult.steps || []
@@ -583,7 +642,7 @@ export async function POST(request: NextRequest) {
           responseData = {
             answer: {
               state: 'COMPLETED',
-              answerText: `${answerText}\n\n💡 **Tip**: For even more detailed guidance, try asking about specific aspects or rephrasing your question.`,
+              answerText: `${cleanResponseText(answerText)}\n\n💡 **Tip**: For even more detailed guidance, try asking about specific aspects or rephrasing your question.`,
               citations: discoveryResult.citations || [],
               references: discoveryResult.references || [],
               steps: discoveryResult.steps || []
@@ -597,7 +656,7 @@ export async function POST(request: NextRequest) {
           responseData = {
             answer: {
               state: 'COMPLETED',
-              answerText: `${answerText}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
+              answerText: `${cleanResponseText(answerText)}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
               citations: discoveryResult.citations || [],
               references: discoveryResult.references || [],
               steps: discoveryResult.steps || []
@@ -651,7 +710,7 @@ export async function POST(request: NextRequest) {
             responseData = {
               answer: {
                 state: 'COMPLETED',
-                answerText: result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || '',
+                answerText: cleanResponseText(result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || ''),
                 citations: result.citations || [],
                 references: result.references || [],
                 steps: result.steps || []
@@ -664,7 +723,7 @@ export async function POST(request: NextRequest) {
             responseData = {
               answer: {
                 state: 'COMPLETED',
-                answerText: `${answerText}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
+                answerText: `${cleanResponseText(answerText)}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
                 citations: result.citations || [],
                 references: result.references || [],
                 steps: result.steps || []
@@ -738,7 +797,7 @@ export async function POST(request: NextRequest) {
           responseData = {
             answer: {
               state: 'COMPLETED',
-              answerText: result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || '',
+              answerText: cleanResponseText(result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || ''),
               citations: result.citations || [],
               references: result.references || [],
               steps: result.steps || []
@@ -747,11 +806,11 @@ export async function POST(request: NextRequest) {
           };
         } else if (validation.isValid && validation.confidence >= 0.1) {
           // Low confidence but still valid - return with disclaimer
-                      const answerText = result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || ''
-          responseData = {
-            answer: {
-              state: 'COMPLETED',
-              answerText: `${answerText}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
+                                  const answerText = result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || ''
+            responseData = {
+              answer: {
+                state: 'COMPLETED',
+                answerText: `${cleanResponseText(answerText)}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
               citations: result.citations || [],
               references: result.references || [],
               steps: result.steps || []
