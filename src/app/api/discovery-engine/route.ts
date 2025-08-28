@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { GoogleAuth } from 'google-auth-library'
 import { createSessionWithFallback, buildSessionPath, generateUserPseudoId } from '@/lib/sessionManager'
 import { perplexitySearch, isPerplexitySearchEnabled, getPerplexitySearchWeight } from '@/lib/perplexitySearch'
+import { writeApiLog, createLogData } from '@/lib/logger'
 
 // Helper function to execute Discovery Engine search
 const executeDiscoveryEngineSearch = async (question: string, accessToken: string, apiEndpoint: string, googleSessionPath?: string) => {
@@ -247,15 +248,28 @@ const fuseSearchResults = (discoveryResult: any, perplexityResult: any, perplexi
 
 export async function POST(request: NextRequest) {
   console.log('🚀 API route started - POST request received')
+  console.log('NODE_ENV:', process.env.NODE_ENV)
+  
+  const startTime = Date.now()
+  let requestBody: any = null
+  let responseData: any = null
+  let errors: string[] = []
+  
   try {
     const { question, sessionId } = await request.json()
+    requestBody = { question, sessionId }
     
     if (!question || typeof question !== 'string') {
       console.log('❌ Invalid question format, returning 400 error')
-      return NextResponse.json(
-        { error: 'Question is required and must be a string' },
-        { status: 400 }
-      )
+      const errorResponse = { error: 'Question is required and must be a string' }
+      responseData = errorResponse
+      errors.push('Invalid question format')
+      
+      // Log the error response
+      const logData = createLogData(requestBody, responseData, null, null, Date.now() - startTime, errors)
+      await writeApiLog(logData)
+      
+      return NextResponse.json(errorResponse, { status: 400 })
     }
 
     console.log('Received question:', question)
@@ -306,10 +320,15 @@ export async function POST(request: NextRequest) {
         hasApiEndpoint: !!apiEndpoint
       })
       console.log('❌ Missing environment variables, returning 500 error')
-      return NextResponse.json(
-        { error: 'Google Cloud credentials not configured. Please check environment variables.' },
-        { status: 500 }
-      )
+      const errorResponse = { error: 'Google Cloud credentials not configured. Please check environment variables.' }
+      responseData = errorResponse
+      errors.push('Missing environment variables')
+      
+      // Log the error response
+      const logData = createLogData(requestBody, responseData, null, null, Date.now() - startTime, errors)
+      await writeApiLog(logData)
+      
+      return NextResponse.json(errorResponse, { status: 500 })
     }
     
     // Construct credentials object from environment variables
@@ -355,10 +374,15 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.log('Error getting access token:', error)
       console.log('❌ Authentication failed, returning 500 error')
-      return NextResponse.json(
-        { error: 'Failed to authenticate with Google Cloud. Please check service account credentials and permissions.' },
-        { status: 500 }
-      )
+      const errorResponse = { error: 'Failed to authenticate with Google Cloud. Please check service account credentials and permissions.' }
+      responseData = errorResponse
+      errors.push('Authentication failed')
+      
+      // Log the error response
+      const logData = createLogData(requestBody, responseData, null, null, Date.now() - startTime, errors)
+      await writeApiLog(logData)
+      
+      return NextResponse.json(errorResponse, { status: 500 })
     }
 
     // Prepare for hybrid search execution
@@ -431,16 +455,21 @@ export async function POST(request: NextRequest) {
       // If both searches failed, return error
       if (!discoveryEngineResult && !perplexityResult) {
         console.log('❌ Both searches failed, returning 500 error')
-        return NextResponse.json(
-          { error: 'Both search methods failed. Please try again.' },
-          { status: 500 }
-        )
+        const errorResponse = { error: 'Both search methods failed. Please try again.' }
+        responseData = errorResponse
+        errors.push('Both search methods failed')
+        
+        // Log the error response
+        const logData = createLogData(requestBody, responseData, newSessionId, { enabled: enableHybridSearch, weights: { perplexity: perplexityWeight, discovery: discoveryWeight }, sources: ['google_discovery_engine', 'perplexity'] }, Date.now() - startTime, errors)
+        await writeApiLog(logData)
+        
+        return NextResponse.json(errorResponse, { status: 500 })
       }
 
       // If only one search succeeded, use that result
       if (!discoveryEngineResult && perplexityResult) {
         console.log('🔄 Using Perplexity-only result (Discovery Engine failed)')
-        const responseData = {
+        responseData = {
           answer: {
             state: 'COMPLETED',
             answerText: perplexityResult.answer || '',
@@ -451,12 +480,17 @@ export async function POST(request: NextRequest) {
           sessionId: newSessionId
         };
         console.log('📤 Returning Perplexity-only response')
+        
+        // Log the successful response
+        const logData = createLogData(requestBody, responseData, newSessionId, { enabled: enableHybridSearch, weights: { perplexity: perplexityWeight, discovery: discoveryWeight }, sources: ['perplexity'] }, Date.now() - startTime, errors)
+        await writeApiLog(logData)
+        
         return NextResponse.json(responseData)
       }
       
       if (discoveryEngineResult && !perplexityResult) {
         console.log('🔄 Using Discovery Engine-only result (Perplexity failed)')
-        const responseData = {
+        responseData = {
           answer: {
             state: 'COMPLETED',
             answerText: discoveryEngineResult.answer || discoveryEngineResult.choices?.[0]?.message?.content || '',
@@ -467,6 +501,11 @@ export async function POST(request: NextRequest) {
           sessionId: newSessionId
         };
         console.log('📤 Returning Discovery Engine-only response')
+        
+        // Log the successful response
+        const logData = createLogData(requestBody, responseData, newSessionId, { enabled: enableHybridSearch, weights: { perplexity: perplexityWeight, discovery: discoveryWeight }, sources: ['google_discovery_engine'] }, Date.now() - startTime, errors)
+        await writeApiLog(logData)
+        
         return NextResponse.json(responseData)
       }
 
@@ -476,7 +515,7 @@ export async function POST(request: NextRequest) {
       console.log('✅ Result fusion completed')
       
       // Add session information if new session was created
-      const responseData = {
+      responseData = {
         answer: {
           state: 'COMPLETED',
           answerText: fusedResult.answer || '',
@@ -488,6 +527,11 @@ export async function POST(request: NextRequest) {
       };
       
       console.log('📤 Returning fused hybrid search response')
+      
+      // Log the successful hybrid response
+      const logData = createLogData(requestBody, responseData, newSessionId, { enabled: enableHybridSearch, weights: { perplexity: perplexityWeight, discovery: discoveryWeight }, sources: ['google_discovery_engine', 'perplexity'] }, Date.now() - startTime, errors)
+      await writeApiLog(logData)
+      
       return NextResponse.json(responseData)
     } else {
       // Fallback to Discovery Engine only
@@ -495,7 +539,7 @@ export async function POST(request: NextRequest) {
       const result = await executeDiscoveryEngineSearch(question, accessToken.token!, apiEndpoint!, googleSessionPath || undefined)
       
       // Return response with session information if new session was created
-      const responseData = {
+      responseData = {
         answer: {
           state: 'COMPLETED',
           answerText: result.answer || result.choices?.[0]?.message?.content || '',
@@ -507,13 +551,23 @@ export async function POST(request: NextRequest) {
       };
 
       console.log('📤 Returning Discovery Engine-only response (hybrid disabled)')
+      
+      // Log the successful Discovery Engine-only response
+      const logData = createLogData(requestBody, responseData, newSessionId, { enabled: false, weights: { perplexity: 0, discovery: 1 }, sources: ['google_discovery_engine'] }, Date.now() - startTime, errors)
+      await writeApiLog(logData)
+      
       return NextResponse.json(responseData)
     }
   } catch (error) {
     console.log('❌ Request parsing error:', error)
-    return NextResponse.json(
-      { error: 'Invalid request body' },
-      { status: 400 }
-    )
+    const errorResponse = { error: 'Invalid request body' }
+    responseData = errorResponse
+    errors.push(`Request parsing error: ${error}`)
+    
+    // Log the error response
+    const logData = createLogData(requestBody, responseData, null, null, Date.now() - startTime, errors)
+    await writeApiLog(logData)
+    
+    return NextResponse.json(errorResponse, { status: 400 })
   }
 }
