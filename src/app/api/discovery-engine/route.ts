@@ -531,10 +531,26 @@ export async function POST(request: NextRequest) {
         hasCorpusCitations: discoveryHasCorpusCitations 
       })
       
-      // Temporarily allow Discovery Engine results even without corpus citations for testing
+      // Check if Discovery Engine result lacks corpus citations
       if (discoveryEngineResult && !discoveryHasCorpusCitations) {
-        console.log('⚠️ Discovery Engine result lacks corpus citations, but allowing for testing')
-        // Continue with the normal flow instead of returning fallback
+        console.log('⚠️ Discovery Engine result lacks corpus citations, providing fallback message')
+        const fallbackResponse = {
+          answer: {
+            state: 'COMPLETED',
+            answerText: `I humbly acknowledge that specific guidance on "${question}" is not present in the sacred texts available to me. While I cannot provide a direct answer from our curated corpus, I can share related wisdom from our scriptures that may offer some guidance.\n\nPlease try rephrasing your question or ask about topics covered in our sacred texts such as dharma, meditation, karma, moksha, or spiritual practices.`,
+            citations: [],
+            references: [],
+            steps: []
+          },
+          sessionId: newSessionId
+        }
+        responseData = fallbackResponse
+        
+        // Log the fallback response
+        const logData = createLogData(requestBody, responseData, newSessionId, { enabled: enableHybridSearch, weights: { perplexity: perplexityWeight, discovery: discoveryWeight }, sources: ['google_discovery_engine'], corpusGrounded: false }, Date.now() - startTime, errors)
+        await writeApiLog(logData)
+        
+        return NextResponse.json(fallbackResponse)
       }
 
       // If only one search succeeded, use that result
