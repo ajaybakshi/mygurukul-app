@@ -246,10 +246,12 @@ const fuseSearchResults = (discoveryResult: any, perplexityResult: any, perplexi
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 API route started - POST request received')
   try {
     const { question, sessionId } = await request.json()
     
     if (!question || typeof question !== 'string') {
+      console.log('❌ Invalid question format, returning 400 error')
       return NextResponse.json(
         { error: 'Question is required and must be a string' },
         { status: 400 }
@@ -303,6 +305,7 @@ export async function POST(request: NextRequest) {
         hasPrivateKey: !!privateKey,
         hasApiEndpoint: !!apiEndpoint
       })
+      console.log('❌ Missing environment variables, returning 500 error')
       return NextResponse.json(
         { error: 'Google Cloud credentials not configured. Please check environment variables.' },
         { status: 500 }
@@ -351,6 +354,7 @@ export async function POST(request: NextRequest) {
       console.log('Access token obtained successfully')
     } catch (error) {
       console.log('Error getting access token:', error)
+      console.log('❌ Authentication failed, returning 500 error')
       return NextResponse.json(
         { error: 'Failed to authenticate with Google Cloud. Please check service account credentials and permissions.' },
         { status: 500 }
@@ -426,6 +430,7 @@ export async function POST(request: NextRequest) {
 
       // If both searches failed, return error
       if (!discoveryEngineResult && !perplexityResult) {
+        console.log('❌ Both searches failed, returning 500 error')
         return NextResponse.json(
           { error: 'Both search methods failed. Please try again.' },
           { status: 500 }
@@ -435,19 +440,33 @@ export async function POST(request: NextRequest) {
       // If only one search succeeded, use that result
       if (!discoveryEngineResult && perplexityResult) {
         console.log('🔄 Using Perplexity-only result (Discovery Engine failed)')
-        const responseData = { ...perplexityResult };
-        if (newSessionId) {
-          responseData.sessionId = newSessionId;
-        }
+        const responseData = {
+          answer: {
+            state: 'COMPLETED',
+            answerText: perplexityResult.answer || '',
+            citations: perplexityResult.citations || [],
+            references: perplexityResult.references || [],
+            steps: perplexityResult.steps || []
+          },
+          sessionId: newSessionId
+        };
+        console.log('📤 Returning Perplexity-only response')
         return NextResponse.json(responseData)
       }
       
       if (discoveryEngineResult && !perplexityResult) {
         console.log('🔄 Using Discovery Engine-only result (Perplexity failed)')
-        const responseData = { ...discoveryEngineResult };
-        if (newSessionId) {
-          responseData.sessionId = newSessionId;
-        }
+        const responseData = {
+          answer: {
+            state: 'COMPLETED',
+            answerText: discoveryEngineResult.answer || discoveryEngineResult.choices?.[0]?.message?.content || '',
+            citations: discoveryEngineResult.citations || [],
+            references: discoveryEngineResult.references || [],
+            steps: discoveryEngineResult.steps || []
+          },
+          sessionId: newSessionId
+        };
+        console.log('📤 Returning Discovery Engine-only response')
         return NextResponse.json(responseData)
       }
 
@@ -457,12 +476,18 @@ export async function POST(request: NextRequest) {
       console.log('✅ Result fusion completed')
       
       // Add session information if new session was created
-      const responseData = { ...fusedResult };
-      if (newSessionId) {
-        responseData.sessionId = newSessionId;
-        console.log('📤 Returning new session ID to frontend:', newSessionId);
-      }
+      const responseData = {
+        answer: {
+          state: 'COMPLETED',
+          answerText: fusedResult.answer || '',
+          citations: fusedResult.citations || [],
+          references: fusedResult.references || [],
+          steps: fusedResult.steps || []
+        },
+        sessionId: newSessionId
+      };
       
+      console.log('📤 Returning fused hybrid search response')
       return NextResponse.json(responseData)
     } else {
       // Fallback to Discovery Engine only
@@ -470,16 +495,22 @@ export async function POST(request: NextRequest) {
       const result = await executeDiscoveryEngineSearch(question, accessToken.token!, apiEndpoint!, googleSessionPath || undefined)
       
       // Return response with session information if new session was created
-      const responseData = { ...result };
-      if (newSessionId) {
-        responseData.sessionId = newSessionId;
-        console.log('📤 Returning new session ID to frontend:', newSessionId);
-      }
+      const responseData = {
+        answer: {
+          state: 'COMPLETED',
+          answerText: result.answer || result.choices?.[0]?.message?.content || '',
+          citations: result.citations || [],
+          references: result.references || [],
+          steps: result.steps || []
+        },
+        sessionId: newSessionId
+      };
 
+      console.log('📤 Returning Discovery Engine-only response (hybrid disabled)')
       return NextResponse.json(responseData)
     }
   } catch (error) {
-    console.log('Request parsing error:', error)
+    console.log('❌ Request parsing error:', error)
     return NextResponse.json(
       { error: 'Invalid request body' },
       { status: 400 }
