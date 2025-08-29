@@ -10,6 +10,14 @@ interface LogData {
     enabled: boolean
     weights: { perplexity: number; discovery: number }
     sources: string[]
+    hyde?: {
+      enabled: boolean
+      success: boolean
+      termCount: number
+      terms: string[]
+      confidence: number
+      processingTime: number
+    }
   }
   processingTime?: number
   errors?: string[]

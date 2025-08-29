@@ -3,6 +3,7 @@ import { GoogleAuth } from 'google-auth-library'
 import { createSessionWithFallback, buildSessionPath, generateUserPseudoId } from '@/lib/sessionManager'
 import { perplexitySearch, isPerplexitySearchEnabled, getPerplexitySearchWeight } from '@/lib/perplexitySearch'
 import { writeApiLog, createLogData } from '@/lib/logger'
+import { generateHypotheticalDocument, isHydeEnabled, logHydeOperation } from '@/lib/hydeService'
 
 // Helper function to execute Discovery Engine search
 const executeDiscoveryEngineSearch = async (question: string, accessToken: string, apiEndpoint: string, googleSessionPath?: string) => {
@@ -188,9 +189,30 @@ const mergeReferences = (discoveryReferences: any[], perplexityReferences: any[]
   return merged
 }
 
-// Helper function to enhance query using Perplexity insights
-const enhanceQueryWithPerplexity = async (originalQuery: string): Promise<string> => {
-  console.log('🔍 Enhancing query with Perplexity insights:', originalQuery)
+// Helper function to enhance query using Perplexity insights and HYDE
+const enhanceQueryWithPerplexity = async (originalQuery: string): Promise<{ enhancedQuery: string; hydeMetadata: any }> => {
+  console.log('🔍 Enhancing query with Perplexity insights and HYDE:', originalQuery)
+  
+  let hydeTerms: string[] = []
+  let hydeResult = null
+  
+  // HYDE INTEGRATION STEP - Generate hypothetical document and extract terms
+  if (isHydeEnabled()) {
+    console.log('🔮 HYDE: Starting hypothetical document generation')
+    try {
+      hydeResult = await generateHypotheticalDocument(originalQuery)
+      if (hydeResult.success && hydeResult.extractedTerms.length > 0) {
+        hydeTerms = hydeResult.extractedTerms
+        console.log('🔮 HYDE: Successfully extracted terms:', hydeTerms)
+      } else {
+        console.log('🔮 HYDE: No terms extracted or generation failed')
+      }
+    } catch (error) {
+      console.log('🔮 HYDE: Error during generation:', error)
+    }
+  } else {
+    console.log('🔮 HYDE: Disabled by configuration')
+  }
   
   try {
     // Create a focused prompt for query enhancement
@@ -211,21 +233,51 @@ Enhanced terms:`
     if (enhancedQuery && enhancedQuery.answer) {
       // Extract the enhanced terms from Perplexity response
       const enhancedTerms = enhancedQuery.answer.trim()
-      const finalQuery = `${originalQuery} ${enhancedTerms}`
+      
+      // Combine Perplexity terms with HYDE terms
+      let allEnhancedTerms = enhancedTerms
+      if (hydeTerms.length > 0) {
+        const hydeTermsString = hydeTerms.join(' ')
+        allEnhancedTerms = `${enhancedTerms} ${hydeTermsString}`
+        console.log('🔮 HYDE: Combined terms with Perplexity enhancement')
+      }
+      
+      const finalQuery = `${originalQuery} ${allEnhancedTerms}`
       
       console.log('✅ Query enhanced:', {
         original: originalQuery,
-        enhanced: enhancedTerms,
+        perplexityEnhanced: enhancedTerms,
+        hydeTerms: hydeTerms,
         final: finalQuery
       })
       
-      return finalQuery
+      return {
+        enhancedQuery: finalQuery,
+        hydeMetadata: {
+          enabled: isHydeEnabled(),
+          success: hydeResult?.success || false,
+          termCount: hydeTerms.length,
+          terms: hydeTerms,
+          confidence: hydeResult?.confidence || 0,
+          processingTime: hydeResult?.processingTime || 0
+        }
+      }
     }
   } catch (error) {
     console.log('⚠️ Query enhancement failed, using original query:', error)
   }
   
-  return originalQuery
+  return {
+    enhancedQuery: originalQuery,
+    hydeMetadata: {
+      enabled: isHydeEnabled(),
+      success: false,
+      termCount: 0,
+      terms: [],
+      confidence: 0,
+      processingTime: 0
+    }
+  }
 }
 
 // Helper function to validate corpus content with confidence scoring
@@ -601,9 +653,11 @@ export async function POST(request: NextRequest) {
       console.log('🚀 Starting query enhancement pattern...')
       
       try {
-        // Step 1: Enhance query using Perplexity insights
-        console.log('🔍 Step 1: Enhancing query with Perplexity insights...')
-        const enhancedQuery = await enhanceQueryWithPerplexity(question)
+        // Step 1: Enhance query using Perplexity insights and HYDE
+        console.log('🔍 Step 1: Enhancing query with Perplexity insights and HYDE...')
+        const enhancementResult = await enhanceQueryWithPerplexity(question)
+        const enhancedQuery = enhancementResult.enhancedQuery
+        const hydeMetadata = enhancementResult.hydeMetadata
         
         // Step 2: Process enhanced query through Discovery Engine only
         console.log('🔍 Step 2: Processing enhanced query through Discovery Engine...')
@@ -683,6 +737,7 @@ export async function POST(request: NextRequest) {
           enabled: enableHybridSearch, 
           weights: { perplexity: 0, discovery: 1 }, 
           sources: ['google_discovery_engine'],
+          hyde: hydeMetadata,
           queryEnhancement: {
             original: queryInfo.original,
             enhanced: queryInfo.enhanced,
@@ -751,6 +806,14 @@ export async function POST(request: NextRequest) {
             enabled: enableHybridSearch, 
             weights: { perplexity: 0, discovery: 1 }, 
             sources: ['google_discovery_engine'],
+            hyde: {
+              enabled: isHydeEnabled(),
+              success: false,
+              termCount: 0,
+              terms: [],
+              confidence: 0,
+              processingTime: 0
+            },
             validation: {
               isValid: validation.isValid,
               confidence: validation.confidence,
@@ -768,7 +831,19 @@ export async function POST(request: NextRequest) {
           errors.push(`Discovery Engine fallback error: ${fallbackError}`)
           
           // Log the error response
-          const logData = createLogData(requestBody, responseData, newSessionId, { enabled: enableHybridSearch, weights: { perplexity: 0, discovery: 1 }, sources: ['google_discovery_engine'] }, Date.now() - startTime, errors)
+          const logData = createLogData(requestBody, responseData, newSessionId, { 
+            enabled: enableHybridSearch, 
+            weights: { perplexity: 0, discovery: 1 }, 
+            sources: ['google_discovery_engine'],
+            hyde: {
+              enabled: isHydeEnabled(),
+              success: false,
+              termCount: 0,
+              terms: [],
+              confidence: 0,
+              processingTime: 0
+            }
+          }, Date.now() - startTime, errors)
           await writeApiLog(logData)
           
           return NextResponse.json(errorResponse, { status: 500 })
@@ -838,6 +913,14 @@ export async function POST(request: NextRequest) {
           enabled: false, 
           weights: { perplexity: 0, discovery: 1 }, 
           sources: ['google_discovery_engine'],
+          hyde: {
+            enabled: isHydeEnabled(),
+            success: false,
+            termCount: 0,
+            terms: [],
+            confidence: 0,
+            processingTime: 0
+          },
           validation: {
             isValid: validation.isValid,
             confidence: validation.confidence,
@@ -854,7 +937,19 @@ export async function POST(request: NextRequest) {
         errors.push(`Discovery Engine error: ${error}`)
         
         // Log the error response
-        const logData = createLogData(requestBody, responseData, newSessionId, { enabled: false, weights: { perplexity: 0, discovery: 1 }, sources: ['google_discovery_engine'] }, Date.now() - startTime, errors)
+        const logData = createLogData(requestBody, responseData, newSessionId, { 
+          enabled: false, 
+          weights: { perplexity: 0, discovery: 1 }, 
+          sources: ['google_discovery_engine'],
+          hyde: {
+            enabled: isHydeEnabled(),
+            success: false,
+            termCount: 0,
+            terms: [],
+            confidence: 0,
+            processingTime: 0
+          }
+        }, Date.now() - startTime, errors)
         await writeApiLog(logData)
         
         return NextResponse.json(errorResponse, { status: 500 })
