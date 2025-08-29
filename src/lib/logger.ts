@@ -17,6 +17,13 @@ interface LogData {
       terms: string[]
       confidence: number
       processingTime: number
+      abTesting?: {
+        enabled: boolean
+        rolloutPercentage: number
+        shouldEnable: boolean
+        userHash: number
+        hashPercentage: number
+      }
     }
   }
   processingTime?: number

@@ -34,6 +34,7 @@ export interface HydeConfig {
   targetLength: number
   model: string
   minConfidence: number
+  rolloutPercentage: number
 }
 
 export interface ExtractedTerms {
@@ -52,7 +53,8 @@ const DEFAULT_HYDE_CONFIG: HydeConfig = {
   timeout: 10000, // 10 seconds
   targetLength: 150, // 100-200 words
   model: 'sonar',
-  minConfidence: 0.3
+  minConfidence: 0.3,
+  rolloutPercentage: parseInt(process.env.HYDE_ROLLOUT_PERCENTAGE || '0', 10)
 }
 
 const SPIRITUAL_HYDE_PROMPT = `As a wise spiritual scholar, you are tasked with creating a hypothetical document that would answer a seeker's question about spiritual topics. This document should be written in the style of ancient sacred texts and contain the wisdom that would naturally answer their question.
@@ -88,25 +90,30 @@ Example: dharma karma moksha atman brahman meditation vedas upanishads`
  * Generate a hypothetical document for HYDE query enhancement
  * @param userQuery - The original user question
  * @param config - HYDE configuration options
+ * @param sessionId - Optional session ID for A/B testing consistency
  * @returns Promise<HydeResult> - The HYDE generation result
  */
 export async function generateHypotheticalDocument(
   userQuery: string,
-  config: Partial<HydeConfig> = {}
+  config: Partial<HydeConfig> = {},
+  sessionId?: string | null
 ): Promise<HydeResult> {
   const startTime = Date.now()
   const finalConfig = { ...DEFAULT_HYDE_CONFIG, ...config }
   
   console.log('🔮 HYDE: Starting hypothetical document generation for:', userQuery)
   
-  if (!finalConfig.enabled) {
-    console.log('🔮 HYDE: Disabled by configuration')
+  // Check if HYDE should be enabled for this specific query (A/B testing)
+  const shouldEnable = shouldEnableHydeForQuery(userQuery, sessionId)
+  
+  if (!shouldEnable) {
+    console.log('🔮 HYDE: Disabled by A/B testing or configuration')
     return {
       success: false,
       extractedTerms: [],
       confidence: 0,
       processingTime: Date.now() - startTime,
-      error: 'HYDE disabled by configuration'
+      error: 'HYDE disabled by A/B testing or configuration'
     }
   }
 
@@ -240,7 +247,61 @@ function calculateConfidence(document: string, extractedTerms: ExtractedTerms, c
 }
 
 /**
- * Check if HYDE is enabled
+ * Generate a deterministic hash for consistent user experience
+ */
+export function generateUserHash(userQuery: string, sessionId?: string | null): number {
+  const input = `${userQuery}:${sessionId || 'anonymous'}`
+  let hash = 0
+  for (let i = 0; i < input.length; i++) {
+    const char = input.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32-bit integer
+  }
+  return Math.abs(hash)
+}
+
+/**
+ * Check if HYDE should be enabled for this specific query (A/B testing)
+ */
+export function shouldEnableHydeForQuery(userQuery: string, sessionId?: string | null): boolean {
+  const config = getHydeConfig()
+  
+  // If HYDE is globally disabled, return false
+  if (!config.enabled) {
+    return false
+  }
+  
+  // If rollout percentage is 0, return false
+  if (config.rolloutPercentage <= 0) {
+    return false
+  }
+  
+  // If rollout percentage is 100, return true
+  if (config.rolloutPercentage >= 100) {
+    return true
+  }
+  
+  // Generate deterministic hash for consistent experience
+  const userHash = generateUserHash(userQuery, sessionId)
+  const hashPercentage = userHash % 100
+  
+  // Enable HYDE if hash percentage is within rollout percentage
+  const shouldEnable = hashPercentage < config.rolloutPercentage
+  
+  console.log('🔮 HYDE A/B Test:', {
+    userQuery: userQuery.substring(0, 50) + '...',
+    sessionId: sessionId || 'anonymous',
+    userHash,
+    hashPercentage,
+    rolloutPercentage: config.rolloutPercentage,
+    shouldEnable
+  })
+  
+  return shouldEnable
+}
+
+/**
+ * Check if HYDE is enabled (legacy function for backward compatibility)
  */
 export function isHydeEnabled(): boolean {
   return process.env.HYDE_ENABLED === 'true'
@@ -269,12 +330,24 @@ export function logHydeOperation(
   operation: string,
   userQuery: string,
   result: HydeResult,
+  sessionId?: string | null,
   additionalData?: Record<string, any>
 ): void {
+  const config = getHydeConfig()
+  const shouldEnable = shouldEnableHydeForQuery(userQuery, sessionId)
+  
   const logData = {
     timestamp: new Date().toISOString(),
     operation,
-    userQuery,
+    userQuery: userQuery.substring(0, 100) + (userQuery.length > 100 ? '...' : ''),
+    sessionId: sessionId || 'anonymous',
+    abTesting: {
+      enabled: config.enabled,
+      rolloutPercentage: config.rolloutPercentage,
+      shouldEnable,
+      userHash: generateUserHash(userQuery, sessionId),
+      hashPercentage: generateUserHash(userQuery, sessionId) % 100
+    },
     hydeResult: {
       success: result.success,
       termCount: result.extractedTerms.length,

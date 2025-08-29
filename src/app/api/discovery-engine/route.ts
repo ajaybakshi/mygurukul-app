@@ -3,7 +3,7 @@ import { GoogleAuth } from 'google-auth-library'
 import { createSessionWithFallback, buildSessionPath, generateUserPseudoId } from '@/lib/sessionManager'
 import { perplexitySearch, isPerplexitySearchEnabled, getPerplexitySearchWeight } from '@/lib/perplexitySearch'
 import { writeApiLog, createLogData } from '@/lib/logger'
-import { generateHypotheticalDocument, isHydeEnabled, logHydeOperation } from '@/lib/hydeService'
+import { generateHypotheticalDocument, isHydeEnabled, logHydeOperation, shouldEnableHydeForQuery, generateUserHash } from '@/lib/hydeService'
 
 // Helper function to execute Discovery Engine search
 const executeDiscoveryEngineSearch = async (question: string, accessToken: string, apiEndpoint: string, googleSessionPath?: string) => {
@@ -190,17 +190,18 @@ const mergeReferences = (discoveryReferences: any[], perplexityReferences: any[]
 }
 
 // Helper function to enhance query using Perplexity insights and HYDE
-const enhanceQueryWithPerplexity = async (originalQuery: string): Promise<{ enhancedQuery: string; hydeMetadata: any }> => {
+const enhanceQueryWithPerplexity = async (originalQuery: string, sessionId?: string | null): Promise<{ enhancedQuery: string; hydeMetadata: any }> => {
   console.log('🔍 Enhancing query with Perplexity insights and HYDE:', originalQuery)
   
   let hydeTerms: string[] = []
   let hydeResult = null
+  let abTestingMetadata = null
   
   // HYDE INTEGRATION STEP - Generate hypothetical document and extract terms
   if (isHydeEnabled()) {
     console.log('🔮 HYDE: Starting hypothetical document generation')
     try {
-      hydeResult = await generateHypotheticalDocument(originalQuery)
+      hydeResult = await generateHypotheticalDocument(originalQuery, {}, sessionId)
       if (hydeResult.success && hydeResult.extractedTerms.length > 0) {
         hydeTerms = hydeResult.extractedTerms
         console.log('🔮 HYDE: Successfully extracted terms:', hydeTerms)
@@ -259,7 +260,14 @@ Enhanced terms:`
           termCount: hydeTerms.length,
           terms: hydeTerms,
           confidence: hydeResult?.confidence || 0,
-          processingTime: hydeResult?.processingTime || 0
+          processingTime: hydeResult?.processingTime || 0,
+          abTesting: {
+            enabled: isHydeEnabled(),
+            rolloutPercentage: parseInt(process.env.HYDE_ROLLOUT_PERCENTAGE || '0', 10),
+            shouldEnable: shouldEnableHydeForQuery(originalQuery, sessionId),
+            userHash: generateUserHash(originalQuery, sessionId),
+            hashPercentage: generateUserHash(originalQuery, sessionId) % 100
+          }
         }
       }
     }
@@ -275,7 +283,14 @@ Enhanced terms:`
       termCount: 0,
       terms: [],
       confidence: 0,
-      processingTime: 0
+      processingTime: 0,
+      abTesting: {
+        enabled: isHydeEnabled(),
+        rolloutPercentage: parseInt(process.env.HYDE_ROLLOUT_PERCENTAGE || '0', 10),
+        shouldEnable: shouldEnableHydeForQuery(originalQuery, sessionId),
+        userHash: generateUserHash(originalQuery, sessionId),
+        hashPercentage: generateUserHash(originalQuery, sessionId) % 100
+      }
     }
   }
 }
@@ -655,7 +670,7 @@ export async function POST(request: NextRequest) {
       try {
         // Step 1: Enhance query using Perplexity insights and HYDE
         console.log('🔍 Step 1: Enhancing query with Perplexity insights and HYDE...')
-        const enhancementResult = await enhanceQueryWithPerplexity(question)
+        const enhancementResult = await enhanceQueryWithPerplexity(question, newSessionId)
         const enhancedQuery = enhancementResult.enhancedQuery
         const hydeMetadata = enhancementResult.hydeMetadata
         
@@ -812,7 +827,14 @@ export async function POST(request: NextRequest) {
               termCount: 0,
               terms: [],
               confidence: 0,
-              processingTime: 0
+              processingTime: 0,
+              abTesting: {
+                enabled: isHydeEnabled(),
+                rolloutPercentage: parseInt(process.env.HYDE_ROLLOUT_PERCENTAGE || '0', 10),
+                shouldEnable: shouldEnableHydeForQuery(question, newSessionId),
+                userHash: generateUserHash(question, newSessionId),
+                hashPercentage: generateUserHash(question, newSessionId) % 100
+              }
             },
             validation: {
               isValid: validation.isValid,
@@ -841,7 +863,14 @@ export async function POST(request: NextRequest) {
               termCount: 0,
               terms: [],
               confidence: 0,
-              processingTime: 0
+              processingTime: 0,
+              abTesting: {
+                enabled: isHydeEnabled(),
+                rolloutPercentage: parseInt(process.env.HYDE_ROLLOUT_PERCENTAGE || '0', 10),
+                shouldEnable: shouldEnableHydeForQuery(question, newSessionId),
+                userHash: generateUserHash(question, newSessionId),
+                hashPercentage: generateUserHash(question, newSessionId) % 100
+              }
             }
           }, Date.now() - startTime, errors)
           await writeApiLog(logData)
@@ -919,7 +948,14 @@ export async function POST(request: NextRequest) {
             termCount: 0,
             terms: [],
             confidence: 0,
-            processingTime: 0
+            processingTime: 0,
+            abTesting: {
+              enabled: isHydeEnabled(),
+              rolloutPercentage: parseInt(process.env.HYDE_ROLLOUT_PERCENTAGE || '0', 10),
+              shouldEnable: shouldEnableHydeForQuery(question, newSessionId),
+              userHash: generateUserHash(question, newSessionId),
+              hashPercentage: generateUserHash(question, newSessionId) % 100
+            }
           },
           validation: {
             isValid: validation.isValid,
@@ -947,7 +983,14 @@ export async function POST(request: NextRequest) {
             termCount: 0,
             terms: [],
             confidence: 0,
-            processingTime: 0
+            processingTime: 0,
+            abTesting: {
+              enabled: isHydeEnabled(),
+              rolloutPercentage: parseInt(process.env.HYDE_ROLLOUT_PERCENTAGE || '0', 10),
+              shouldEnable: shouldEnableHydeForQuery(question, newSessionId),
+              userHash: generateUserHash(question, newSessionId),
+              hashPercentage: generateUserHash(question, newSessionId) % 100
+            }
           }
         }, Date.now() - startTime, errors)
         await writeApiLog(logData)
