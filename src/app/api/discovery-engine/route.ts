@@ -931,8 +931,8 @@ export async function POST(request: NextRequest) {
             answer: {
               state: 'COMPLETED',
               answerText: cleanResponseText(discoveryResult.answer?.answerText || discoveryResult.answer || discoveryResult.choices?.[0]?.message?.content || ''),
-              citations: discoveryResult.citations || [],
-              references: discoveryResult.references || [],
+              citations: discoveryResult.answer?.citations || [],
+              references: discoveryResult.answer?.references || [],
               steps: discoveryResult.steps || []
             },
             sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
@@ -945,8 +945,8 @@ export async function POST(request: NextRequest) {
             answer: {
               state: 'COMPLETED',
               answerText: `${cleanResponseText(answerText)}\n\n💡 **Tip**: For even more detailed guidance, try asking about specific aspects or rephrasing your question.`,
-              citations: discoveryResult.citations || [],
-              references: discoveryResult.references || [],
+              citations: discoveryResult.answer?.citations || [],
+              references: discoveryResult.answer?.references || [],
               steps: discoveryResult.steps || []
             },
             sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
@@ -959,8 +959,8 @@ export async function POST(request: NextRequest) {
             answer: {
               state: 'COMPLETED',
               answerText: `${cleanResponseText(answerText)}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
-              citations: discoveryResult.citations || [],
-              references: discoveryResult.references || [],
+              citations: discoveryResult.answer?.citations || [],
+              references: discoveryResult.answer?.references || [],
               steps: discoveryResult.steps || []
             },
             sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
