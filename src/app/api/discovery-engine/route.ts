@@ -5,6 +5,68 @@ import { perplexitySearch, isPerplexitySearchEnabled, getPerplexitySearchWeight 
 import { writeApiLog, createLogData } from '@/lib/logger'
 import { generateHypotheticalDocument, isHydeEnabled, logHydeOperation, shouldEnableHydeForQuery, generateUserHash } from '@/lib/hydeService'
 
+// MINIMAL TEST: Execute basic Discovery Engine search without enhancements
+const executeMinimalDiscoveryEngineSearch = async (question: string, accessToken: string, apiEndpoint: string) => {
+  console.log('🎯 MINIMAL TEST: Basic Discovery Engine call for citation debugging');
+
+  const requestBody = {
+    query: {
+      text: question
+    },
+    answerGenerationSpec: {
+      includeCitations: true,
+      promptSpec: {
+        preamble: "You are a helpful assistant. Answer the question using available information."
+      }
+    }
+  };
+
+  console.log('📤 MINIMAL REQUEST:', JSON.stringify(requestBody, null, 2));
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch(apiEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log('❌ MINIMAL TEST FAILED:', response.status, errorText);
+      throw new Error(`Minimal test failed: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ MINIMAL TEST SUCCESS - Response structure:', {
+      hasAnswer: !!data.answer,
+      answerState: data.answer?.state,
+      citationsCount: data.answer?.citations?.length || 0,
+      referencesCount: data.answer?.references?.length || 0,
+      hasCitationsField: !!data.answer?.citations,
+      hasReferencesField: !!data.answer?.references
+    });
+
+    if (data.answer?.citations) {
+      console.log('📚 MINIMAL TEST - Citations structure:', JSON.stringify(data.answer.citations, null, 2));
+    }
+
+    return data;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.log('❌ MINIMAL TEST ERROR:', error);
+    throw error;
+  }
+};
+
 // Helper function to execute Discovery Engine search
 const executeDiscoveryEngineSearch = async (question: string, accessToken: string, apiEndpoint: string, googleSessionPath?: string) => {
   // Query enhancement for metadata-rich retrieval
@@ -18,17 +80,6 @@ const executeDiscoveryEngineSearch = async (question: string, accessToken: strin
       text: queryText
     },
     ...(googleSessionPath && { session: googleSessionPath }),
-    contentSearchSpec: {
-      searchResultMode: "DOCUMENTS",
-      chunkSpec: {
-        numPreviousChunks: 2,
-        numNextChunks: 2
-      },
-      extractiveContentSpec: {
-        maxExtractiveAnswerCount: 3,
-        maxExtractiveSegmentCount: 5
-      }
-    },
     answerGenerationSpec: {
       includeCitations: true,
       promptSpec: {
@@ -555,16 +606,97 @@ const processEnhancedQuery = async (originalQuery: string, enhancedQuery: string
 export async function POST(request: NextRequest) {
   console.log('🚀 API route started - POST request received')
   console.log('NODE_ENV:', process.env.NODE_ENV)
-  
+
   const startTime = Date.now()
   let requestBody: any = null
   let responseData: any = null
   let errors: string[] = []
-  
+
   try {
-    const { question, sessionId } = await request.json()
-    requestBody = { question, sessionId }
-    
+    const { question, sessionId, minimalTest } = await request.json()
+    requestBody = { question, sessionId, minimalTest }
+
+    // MINIMAL TEST MODE: Bypass all enhancements for citation debugging
+    if (minimalTest === true) {
+      console.log('🎯 MINIMAL TEST MODE ACTIVATED - Bypassing all enhancements')
+
+      // Get basic authentication
+      const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID
+      const clientEmail = process.env.GOOGLE_CLOUD_CLIENT_EMAIL
+      const privateKey = process.env.GOOGLE_CLOUD_PRIVATE_KEY
+      const apiEndpoint = process.env.GOOGLE_DISCOVERY_ENGINE_ENDPOINT
+
+      if (!projectId || !clientEmail || !privateKey || !apiEndpoint) {
+        const errorResponse = { error: 'Missing environment variables' }
+        responseData = errorResponse
+        errors.push('Missing environment variables')
+
+        const logData = createLogData(requestBody, responseData, null, null, Date.now() - startTime, errors)
+        await writeApiLog(logData)
+
+        return NextResponse.json(errorResponse, { status: 500 })
+      }
+
+      // Get access token
+      const auth = new GoogleAuth({
+        credentials: {
+          type: 'service_account',
+          project_id: projectId,
+          private_key_id: 'env-provided',
+          private_key: privateKey.replace(/\\n/g, '\n'),
+          client_email: clientEmail,
+          client_id: 'env-provided',
+          auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+          token_uri: 'https://oauth2.googleapis.com/token',
+          auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+          client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(clientEmail)}`,
+          universe_domain: 'googleapis.com'
+        },
+        scopes: ['https://www.googleapis.com/auth/cloud-platform']
+      })
+
+      const client = await auth.getClient()
+      const accessToken = await client.getAccessToken()
+
+      if (!accessToken.token) {
+        const errorResponse = { error: 'Failed to get access token' }
+        responseData = errorResponse
+        errors.push('Failed to get access token')
+
+        const logData = createLogData(requestBody, responseData, null, null, Date.now() - startTime, errors)
+        await writeApiLog(logData)
+
+        return NextResponse.json(errorResponse, { status: 500 })
+      }
+
+      // Execute minimal test
+      const result = await executeMinimalDiscoveryEngineSearch(question, accessToken.token, apiEndpoint)
+
+      responseData = {
+        answer: {
+          state: result.answer?.state || 'COMPLETED',
+          answerText: result.answer?.answerText || '',
+          citations: result.answer?.citations || [],
+          references: result.answer?.references || [],
+          steps: result.answer?.steps || []
+        },
+        sessionId: null,
+        minimalTest: true,
+        debugInfo: {
+          citationsCount: result.answer?.citations?.length || 0,
+          referencesCount: result.answer?.references?.length || 0,
+          hasCitationsField: !!result.answer?.citations,
+          hasReferencesField: !!result.answer?.references
+        }
+      }
+
+      const logData = createLogData(requestBody, responseData, null, null, Date.now() - startTime, errors)
+      await writeApiLog(logData)
+
+      return NextResponse.json(responseData)
+    }
+
+    console.log('🔄 Running FULL FEATURE MODE with all enhancements')
     if (!question || typeof question !== 'string') {
       console.log('❌ Invalid question format, returning 400 error')
       const errorResponse = { error: 'Question is required and must be a string' }
