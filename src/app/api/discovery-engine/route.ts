@@ -6,13 +6,14 @@ import { writeApiLog, createLogData } from '@/lib/logger'
 import { generateHypotheticalDocument, isHydeEnabled, logHydeOperation, shouldEnableHydeForQuery, generateUserHash } from '@/lib/hydeService'
 
 // MINIMAL TEST: Execute basic Discovery Engine search without enhancements
-const executeMinimalDiscoveryEngineSearch = async (question: string, accessToken: string, apiEndpoint: string) => {
+const executeMinimalDiscoveryEngineSearch = async (question: string, accessToken: string, apiEndpoint: string, sessionPath?: string) => {
   console.log('🎯 MINIMAL TEST: Basic Discovery Engine call for citation debugging');
 
   const requestBody = {
     query: {
       text: question
     },
+    ...(sessionPath && { session: sessionPath }),
     answerGenerationSpec: {
       includeCitations: true,
       promptSpec: {
@@ -122,9 +123,9 @@ const executeDiscoveryEngineSearch = async (question: string, accessToken: strin
     query: {
       text: queryText
     },
-    // WORKAROUND: Disable session for citations (Google Discovery Engine bug)
-    // Citations don't work when session is provided - this is a known limitation
-    // ...(googleSessionPath && { session: googleSessionPath }),
+    // SESSION CONTEXT: Re-enable session path for context continuity
+    // Note: Citations may be affected, but session context is more critical
+    ...(googleSessionPath && { session: googleSessionPath }),
     answerGenerationSpec: {
       includeCitations: true,
       promptSpec: {
@@ -714,8 +715,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(errorResponse, { status: 500 })
       }
 
-      // Execute minimal test
-      const result = await executeMinimalDiscoveryEngineSearch(question, accessToken.token, apiEndpoint)
+      // Execute minimal test with session support
+      const result = await executeMinimalDiscoveryEngineSearch(question, accessToken.token, apiEndpoint, googleSessionPath)
 
       responseData = {
         answer: {
@@ -725,7 +726,7 @@ export async function POST(request: NextRequest) {
           references: result.answer?.references || [],
           steps: result.answer?.steps || []
         },
-        sessionId: null,
+        sessionId: sessionId || newSessionId,
         minimalTest: true,
         debugInfo: {
           citationsCount: result.answer?.citations?.length || 0,
