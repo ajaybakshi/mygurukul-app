@@ -79,7 +79,7 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
   console.log('📤 MINIMAL REQUEST:', JSON.stringify(requestBody, null, 2));
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 300000);
 
   try {
     const response = await fetch(apiEndpoint, {
@@ -209,7 +209,7 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
   console.log('✅ Using minimal valid payload to avoid 400 errors')
 
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minute timeout
 
   try {
     // Make the actual API call to Google Discovery Engine
