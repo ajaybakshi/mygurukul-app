@@ -18,6 +18,17 @@ const executeDiscoveryEngineSearch = async (question: string, accessToken: strin
       text: queryText
     },
     ...(googleSessionPath && { session: googleSessionPath }),
+    contentSearchSpec: {
+      searchResultMode: "DOCUMENTS",
+      chunkSpec: {
+        numPreviousChunks: 2,
+        numNextChunks: 2
+      },
+      extractiveContentSpec: {
+        maxExtractiveAnswerCount: 3,
+        maxExtractiveSegmentCount: 5
+      }
+    },
     answerGenerationSpec: {
       includeCitations: true,
       promptSpec: {
