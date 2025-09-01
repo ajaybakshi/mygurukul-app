@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { rotateLogsIfNeeded } from './logRotation'
 
 interface LogData {
   timestamp: string
@@ -59,6 +60,20 @@ export async function writeApiLog(logData: LogData): Promise<void> {
     await fs.promises.writeFile(filepath, logContent, 'utf8')
 
     console.log('✅ Log write completed:', filename)
+
+    // Rotate logs if needed (keep only last 5)
+    try {
+      const rotationResult = await rotateLogsIfNeeded()
+      if (rotationResult.archived > 0) {
+        console.log(`🔄 Log rotation completed: ${rotationResult.archived} archived, ${rotationResult.kept} kept`)
+        if (rotationResult.archiveId) {
+          console.log(`📦 Archive created: ${rotationResult.archiveId}`)
+        }
+      }
+    } catch (rotationError) {
+      console.error('⚠️ Log rotation failed:', rotationError)
+      // Don't throw error to avoid breaking API responses
+    }
   } catch (error) {
     console.error('❌ Error writing API log:', error)
     // Don't throw error to avoid breaking API responses
