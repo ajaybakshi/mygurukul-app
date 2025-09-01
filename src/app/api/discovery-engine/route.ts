@@ -467,21 +467,21 @@ const validateCorpusContent = (result: any): { isValid: boolean; confidence: num
   }
   
   // Check for citations/references (more lenient)
-  if (result.citations && result.citations.length > 0) {
+  if (result.answer?.citations && result.answer.citations.length > 0) {
     confidence += 0.2
-    reasons.push(`Has ${result.citations.length} citations`)
+    reasons.push(`Has ${result.answer.citations.length} citations`)
   }
-  
-  if (result.references && result.references.length > 0) {
+
+  if (result.answer?.references && result.answer.references.length > 0) {
     confidence += 0.2
-    reasons.push(`Has ${result.references.length} references`)
+    reasons.push(`Has ${result.answer.references.length} references`)
   }
-  
+
   // Check for corpus-specific references (more lenient)
-  if (result.references && result.references.length > 0) {
-    const corpusReferences = result.references.filter((ref: any) => {
+  if (result.answer?.references && result.answer.references.length > 0) {
+    const corpusReferences = result.answer.references.filter((ref: any) => {
       const uri = ref.uri || ref.chunkInfo?.documentMetadata?.uri || ''
-      return uri.includes('mygurukul-sacred-texts-corpus') || 
+      return uri.includes('mygurukul-sacred-texts-corpus') ||
              uri.includes('gs://mygurukul-sacred-texts-corpus') ||
              uri.includes('mygurukul-corpus')
     })
@@ -969,8 +969,8 @@ export async function POST(request: NextRequest) {
               answer: {
                 state: 'COMPLETED',
                 answerText: cleanResponseText(result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || ''),
-                citations: result.citations || [],
-                references: result.references || [],
+                citations: result.answer?.citations || [],
+                references: result.answer?.references || [],
                 steps: result.steps || []
               },
               sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
@@ -982,8 +982,8 @@ export async function POST(request: NextRequest) {
               answer: {
                 state: 'COMPLETED',
                 answerText: `${cleanResponseText(answerText)}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
-                citations: result.citations || [],
-                references: result.references || [],
+                citations: result.answer?.citations || [],
+                references: result.answer?.references || [],
                 steps: result.steps || []
               },
               sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
@@ -1090,8 +1090,8 @@ export async function POST(request: NextRequest) {
             answer: {
               state: 'COMPLETED',
               answerText: cleanResponseText(result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || ''),
-              citations: result.citations || [],
-              references: result.references || [],
+              citations: result.answer?.citations || [],
+              references: result.answer?.references || [],
               steps: result.steps || []
             },
             sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
@@ -1103,8 +1103,8 @@ export async function POST(request: NextRequest) {
             answer: {
               state: 'COMPLETED',
               answerText: `${cleanResponseText(answerText)}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
-              citations: result.citations || [],
-              references: result.references || [],
+              citations: result.answer?.citations || [],
+              references: result.answer?.references || [],
               steps: result.steps || []
             },
             sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
