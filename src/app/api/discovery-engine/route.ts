@@ -115,6 +115,29 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
     }
 
     const data = await response.json()
+    console.log('✅ Google Discovery Engine Response Received:', {
+      hasAnswer: !!data.answer,
+      answerState: data.answer?.state,
+      answerTextLength: data.answer?.answerText?.length || 0,
+      hasSession: !!data.session,
+      sessionPath: data.session,
+      responseSize: JSON.stringify(data).length,
+      citationsCount: data.answer?.citations?.length || 0,
+      referencesCount: data.answer?.references?.length || 0,
+      hasCitationsField: !!data.answer?.citations,
+      hasReferencesField: !!data.answer?.references
+    });
+
+    // Log citation structure for debugging
+    if (data.answer?.citations) {
+      console.log('📚 Citations structure:', JSON.stringify(data.answer.citations, null, 2));
+    }
+
+    // Log references structure for debugging
+    if (data.answer?.references) {
+      console.log('📖 References structure:', JSON.stringify(data.answer.references, null, 2));
+    }
+
     console.log('Success response from Google Discovery Engine Answer API:', JSON.stringify(data, null, 2))
 
     return data
