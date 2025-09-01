@@ -551,7 +551,39 @@ export async function POST(request: NextRequest) {
     let googleSessionPath: string | null = null;
     let newSessionId: string | null = null;
     
-    if (!sessionId) {
+    if (sessionId) {
+      // PRIORITY 1: Use existing sessionId to build proper Google session path
+      console.log('🔍 Validating existing session for context continuity:', {
+        sessionId: sessionId,
+        sessionIdType: typeof sessionId,
+        sessionIdLength: sessionId?.length
+      });
+      
+      try {
+        googleSessionPath = buildSessionPath(sessionId);
+        console.log('✅ Using existing session for context continuity:', {
+          sessionId: sessionId,
+          googleSessionPath: googleSessionPath,
+          contextMaintained: true
+        });
+      } catch (error) {
+        console.log('⚠️ Invalid existing session format, creating new session:', error);
+        // Fallback to creating new session if existing one is invalid
+        const userPseudoId = generateUserPseudoId();
+        googleSessionPath = await createSessionWithFallback(
+          'MyGurukul Spiritual Session',
+          userPseudoId
+        );
+        
+        if (googleSessionPath) {
+          newSessionId = googleSessionPath.split('/').pop() || null;
+          console.log('✅ New session created after invalid existing session:', newSessionId);
+        } else {
+          console.log('⚠️ Session creation failed, continuing without session');
+        }
+      }
+    } else {
+      // PRIORITY 2: Create new session only when no existing sessionId provided
       console.log('🔄 No session provided, creating new Google session...');
       const userPseudoId = generateUserPseudoId();
       googleSessionPath = await createSessionWithFallback(
@@ -560,20 +592,10 @@ export async function POST(request: NextRequest) {
       );
       
       if (googleSessionPath) {
-        // Extract session ID from the full path for frontend
         newSessionId = googleSessionPath.split('/').pop() || null;
         console.log('✅ New session created:', newSessionId);
       } else {
         console.log('⚠️ Session creation failed, continuing without session');
-      }
-    } else {
-      // Use existing sessionId to build proper Google session path
-      try {
-        googleSessionPath = buildSessionPath(sessionId);
-        console.log('🔄 Using existing session:', googleSessionPath);
-      } catch (error) {
-        console.log('⚠️ Invalid session format, continuing without session:', error);
-        googleSessionPath = null;
       }
     }
 
@@ -702,7 +724,7 @@ export async function POST(request: NextRequest) {
               references: discoveryResult.references || [],
               steps: discoveryResult.steps || []
             },
-            sessionId: newSessionId
+            sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
           }
         } else if (validation.isValid && validation.confidence >= 0.3) {
           // Medium confidence - return with gentle suggestion
@@ -716,7 +738,7 @@ export async function POST(request: NextRequest) {
               references: discoveryResult.references || [],
               steps: discoveryResult.steps || []
             },
-            sessionId: newSessionId
+            sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
           }
         } else if (validation.isValid && validation.confidence >= 0.1) {
           // Low confidence but still valid - return with disclaimer
@@ -730,7 +752,7 @@ export async function POST(request: NextRequest) {
               references: discoveryResult.references || [],
               steps: discoveryResult.steps || []
             },
-            sessionId: newSessionId
+            sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
           }
         } else {
           // Very low confidence - provide fallback with rephrasing guidance
@@ -743,7 +765,7 @@ export async function POST(request: NextRequest) {
               references: [],
               steps: []
             },
-            sessionId: newSessionId
+            sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
           }
         }
         
@@ -785,7 +807,7 @@ export async function POST(request: NextRequest) {
                 references: result.references || [],
                 steps: result.steps || []
               },
-              sessionId: newSessionId
+              sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
             };
           } else if (validation.isValid && validation.confidence >= 0.1) {
             // Low confidence but still valid - return with disclaimer
@@ -798,7 +820,7 @@ export async function POST(request: NextRequest) {
                 references: result.references || [],
                 steps: result.steps || []
               },
-              sessionId: newSessionId
+              sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
             };
           } else {
             // Very low confidence - provide fallback with rephrasing guidance
@@ -810,7 +832,7 @@ export async function POST(request: NextRequest) {
                 references: [],
                 steps: []
               },
-              sessionId: newSessionId
+              sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
             };
           }
 
@@ -906,20 +928,20 @@ export async function POST(request: NextRequest) {
               references: result.references || [],
               steps: result.steps || []
             },
-            sessionId: newSessionId
+            sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
           };
         } else if (validation.isValid && validation.confidence >= 0.1) {
           // Low confidence but still valid - return with disclaimer
-                                  const answerText = result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || ''
-            responseData = {
-              answer: {
-                state: 'COMPLETED',
-                answerText: `${cleanResponseText(answerText)}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
+          const answerText = result.answer?.answerText || result.answer || result.choices?.[0]?.message?.content || ''
+          responseData = {
+            answer: {
+              state: 'COMPLETED',
+              answerText: `${cleanResponseText(answerText)}\n\n💡 **Note**: This response may not fully address your question. Consider trying alternative phrasings or asking about related spiritual topics for more comprehensive guidance.`,
               citations: result.citations || [],
               references: result.references || [],
               steps: result.steps || []
             },
-            sessionId: newSessionId
+            sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
           };
         } else {
           // Very low confidence - provide fallback with rephrasing guidance
@@ -931,14 +953,14 @@ export async function POST(request: NextRequest) {
               references: [],
               steps: []
             },
-            sessionId: newSessionId
+            sessionId: sessionId || newSessionId // Prioritize existing sessionId for context continuity
           };
         }
 
         console.log('📤 Returning Discovery Engine-only response (hybrid disabled)')
         
         // Log the successful Discovery Engine-only response
-        const logData = createLogData(requestBody, responseData, newSessionId, { 
+        const logData = createLogData(requestBody, responseData, sessionId || newSessionId, { 
           enabled: false, 
           weights: { perplexity: 0, discovery: 1 }, 
           sources: ['google_discovery_engine'],

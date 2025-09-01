@@ -67,7 +67,34 @@ export function getSessionManagerConfig(): SessionManagerConfig {
 export function buildSessionPath(sessionId: string): string {
   const config = getSessionManagerConfig();
   
-  return `projects/${config.projectId}/locations/${config.location}/collections/default_collection/dataStores/${config.dataStoreId}/sessions/${sessionId}`;
+  // Validate session ID format
+  if (!sessionId || typeof sessionId !== 'string' || sessionId.trim().length === 0) {
+    throw new SessionManagerError(
+      'Invalid session ID: must be a non-empty string',
+      'INVALID_SESSION_ID'
+    );
+  }
+  
+  // Check if session ID contains path separators (should be just the ID, not full path)
+  if (sessionId.includes('/')) {
+    throw new SessionManagerError(
+      'Invalid session ID format: should not contain path separators',
+      'INVALID_SESSION_FORMAT'
+    );
+  }
+  
+  const sessionPath = `projects/${config.projectId}/locations/${config.location}/collections/default_collection/dataStores/${config.dataStoreId}/sessions/${sessionId}`;
+  
+  console.log('🔧 Session Path Construction:', {
+    sessionId: sessionId,
+    projectId: config.projectId,
+    location: config.location,
+    dataStoreId: config.dataStoreId,
+    fullPath: sessionPath,
+    isValid: sessionPath.includes('projects/') && sessionPath.includes('/sessions/')
+  });
+  
+  return sessionPath;
 }
 
 /**
