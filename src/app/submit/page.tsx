@@ -145,7 +145,7 @@ export default function SubmitPage() {
       </header>
 
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-10">
+        <div className="text-center mb-6">
           <h1 className="text-premium-3xl font-bold text-spiritual-950 mb-4">
             Ask a Spiritual Question
           </h1>
@@ -154,7 +154,7 @@ export default function SubmitPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <CategoryDropdown />
 
           {/* Source Materials Display with smooth transitions */}
@@ -162,17 +162,17 @@ export default function SubmitPage() {
             <SourceMaterialsDisplay selectedCategory={category} />
           </div>
 
-          <div className="bg-premium-card border border-premium rounded-xl p-6 sm:p-8 premium-shadow">
-            <label className="block text-premium-lg font-semibold text-spiritual-950 mb-4">Your Question</label>
+          <div className="bg-premium-card border border-premium rounded-xl p-4 sm:p-5 premium-shadow">
+            <label className="block text-premium-base font-semibold text-spiritual-950 mb-2">Your Question</label>
             <textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Share your spiritual question or concern..."
-              className="w-full p-5 border border-premium rounded-xl bg-white text-spiritual-950 placeholder-spiritual-500 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent resize-none transition-all duration-200 hover:border-premium-hover hover:shadow-md text-premium-base leading-relaxed"
-              rows={6}
+              className="w-full p-3 border border-premium rounded-lg bg-white text-spiritual-950 placeholder-spiritual-500 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent resize-none transition-all duration-200 hover:border-premium-hover hover:shadow-md text-premium-base leading-relaxed"
+              rows={2}
               maxLength={500}
             />
-            <div className="text-right text-premium-sm text-spiritual-600 mt-3">
+            <div className="text-right text-premium-sm text-spiritual-600 mt-2">
               {question.length}/500
             </div>
           </div>
@@ -180,7 +180,7 @@ export default function SubmitPage() {
           <button
             type="submit"
             disabled={isSubmitting || !question.trim()}
-            className="w-full bg-amber-600 text-white py-5 px-8 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:bg-amber-700 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] touch-manipulation text-premium-lg font-semibold shadow-lg"
+            className="w-full bg-amber-600 text-white py-3 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:bg-amber-700 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] touch-manipulation text-premium-base font-semibold shadow-lg"
           >
             {isSubmitting ? (
               <div className="flex items-center justify-center space-x-3">
@@ -197,7 +197,7 @@ export default function SubmitPage() {
         </form>
 
         {/* Chat Container */}
-        <div className="mt-8">
+        <div className="mt-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-800">Chat History</h2>
             <div className="space-x-2">
