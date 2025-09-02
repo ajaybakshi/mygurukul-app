@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
-import { Send, ArrowLeft } from 'lucide-react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { callDiscoveryEngine, DiscoveryEngineResponse, DiscoveryEngineError } from '@/lib/discoveryEngine'
 import AIResponse from '@/components/AIResponse'
 import SourceMaterialsDisplay from '@/components/SourceMaterialsDisplay'
+import ChatContainer from '@/components/ChatContainer'
 
 export default function SubmitPage() {
   const [question, setQuestion] = useState('')
@@ -15,10 +15,33 @@ export default function SubmitPage() {
   const [isLoadingAI, setIsLoadingAI] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  
+  // Chat functionality
+  const [chatMessages, setChatMessages] = useState<Array<{
+    id: string;
+    type: 'user' | 'ai';
+    content: string;
+    timestamp: Date;
+  }>>([])
+  const chatContainerRef = useRef<HTMLDivElement>(null)
+
+  // Add message to chat
+  const addMessage = (type: 'user' | 'ai', content: string) => {
+    const newMessage = {
+      id: Date.now().toString(),
+      type,
+      content,
+      timestamp: new Date()
+    }
+    setChatMessages(prev => [...prev, newMessage])
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!question.trim()) return
+
+    // Add user question to chat
+    addMessage('user', question)
 
     setIsSubmitting(true)
     setIsLoadingAI(true)
@@ -28,13 +51,21 @@ export default function SubmitPage() {
     try {
       const response = await callDiscoveryEngine(question)
       setAiResponse(response)
+      
+      // Add AI response to chat
+      if (response.answer?.answerText) {
+        addMessage('ai', response.answer.answerText)
+      }
     } catch (error) {
       if (error instanceof DiscoveryEngineError) {
         setAiError(error.message)
+        addMessage('ai', `Error: ${error.message}`)
       } else if (error instanceof Error) {
         setAiError(error.message)
+        addMessage('ai', `Error: ${error.message}`)
       } else {
         setAiError('An unexpected error occurred. Please try again.')
+        addMessage('ai', 'An unexpected error occurred. Please try again.')
       }
     } finally {
       setIsSubmitting(false)
@@ -108,7 +139,7 @@ export default function SubmitPage() {
           href="/"
           className="flex items-center text-spiritual-600 hover:text-spiritual-800 transition-colors hover-spiritual p-2 rounded-lg"
         >
-          <ArrowLeft className="w-6 h-6 mr-3" />
+          <span className="text-2xl mr-3">⬅️</span>
           <span className="text-premium-base font-medium">Back to Home</span>
         </Link>
       </header>
@@ -158,12 +189,34 @@ export default function SubmitPage() {
               </div>
             ) : (
               <div className="flex items-center justify-center space-x-3">
-                <Send className="w-6 h-6" />
+                <span className="text-xl">📤</span>
                 <span>Ask for Guidance</span>
               </div>
             )}
           </button>
         </form>
+
+        {/* Chat Container */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-800">Chat History</h2>
+            <div className="space-x-2">
+              <button
+                onClick={() => setChatMessages([])}
+                className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
+              >
+                Clear Chat
+              </button>
+              <button
+                onClick={() => addMessage('ai', '🧪 Test AI message - This is a sample response to test the chat display.')}
+                className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+              >
+                Test Message
+              </button>
+            </div>
+          </div>
+          <ChatContainer messages={chatMessages} />
+        </div>
 
         {/* AI Response */}
         <div className="mt-12">
