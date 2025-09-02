@@ -180,7 +180,7 @@ export default function SubmitPage() {
           <button
             type="submit"
             disabled={isSubmitting || !question.trim()}
-            className="w-full button-premium text-white py-5 px-8 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] touch-manipulation text-premium-lg font-semibold"
+            className="w-full bg-amber-600 text-white py-5 px-8 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:bg-amber-700 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] touch-manipulation text-premium-lg font-semibold shadow-lg"
           >
             {isSubmitting ? (
               <div className="flex items-center justify-center space-x-3">
