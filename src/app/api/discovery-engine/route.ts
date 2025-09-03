@@ -715,12 +715,7 @@ export async function POST(request: NextRequest) {
           private_key_id: 'env-provided',
           private_key: privateKey.replace(/\\n/g, '\n'),
           client_email: clientEmail,
-          client_id: 'env-provided',
-          auth_uri: 'https://accounts.google.com/o/oauth2/auth',
-          token_uri: 'https://oauth2.googleapis.com/token',
-          auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
-          client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(clientEmail)}`,
-          universe_domain: 'googleapis.com'
+          client_id: 'env-provided'
         },
         scopes: ['https://www.googleapis.com/auth/cloud-platform']
       })

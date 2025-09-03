@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Send, ArrowLeft, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { callDiscoveryEngine, DiscoveryEngineResponse, DiscoveryEngineError } from '@/lib/discoveryEngine'
@@ -17,6 +17,26 @@ export default function SubmitPage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [showValidationError, setShowValidationError] = useState(false)
+  
+  // Message history state
+  const [messages, setMessages] = useState<Array<{
+    id: number
+    sender: 'user' | 'ai'
+    text: string
+    citations?: Array<any>
+    timestamp: Date
+  }>>([])
+  
+  // Auto-scroll to latest message
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+  
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,8 +56,29 @@ export default function SubmitPage() {
     setAiResponse(null)
 
     try {
+      // Add user question to message history
+      const userMessage = {
+        id: Date.now(),
+        sender: 'user' as const,
+        text: question,
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, userMessage])
+      
       const response = await callDiscoveryEngine(question, sessionId || undefined)
       setAiResponse(response)
+      
+      // Add AI response to message history
+      if (response.answer && response.answer.answerText) {
+        const aiMessage = {
+          id: Date.now() + 1,
+          sender: 'ai' as const,
+          text: response.answer.answerText,
+          citations: response.answer.citations,
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, aiMessage])
+      }
       
       // Extract and store session ID from response if not already set
       if (response.sessionId && !sessionId) {
@@ -70,6 +111,7 @@ export default function SubmitPage() {
     setAiResponse(null)
     setAiError(null)
     setQuestion('')
+    setMessages([]) // Clear message history
   }
 
   // Enhanced Category Dropdown Component
@@ -270,6 +312,76 @@ export default function SubmitPage() {
             </div>
           )}
         </div>
+
+        {/* Message History Display */}
+        {messages.length > 0 && (
+          <div className="mt-8 bg-premium-card border border-premium rounded-xl p-6 premium-shadow">
+            <h3 className="text-premium-lg font-semibold text-spiritual-950 mb-4 flex items-center">
+              <span className="mr-2">💬</span>
+              Conversation History
+            </h3>
+            <div className="space-y-4 max-h-96 overflow-y-auto p-2">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${
+                    message.sender === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  <div
+                    className={`max-w-[80%] ${
+                      message.sender === 'user'
+                        ? 'bg-amber-100 border border-amber-200 rounded-l-lg rounded-tr-lg'
+                        : 'bg-white border border-amber-100 rounded-r-lg rounded-tl-lg'
+                    } p-4 shadow-sm`}
+                  >
+                    {/* Message Header */}
+                    <div className={`text-xs font-medium mb-2 ${
+                      message.sender === 'user'
+                        ? 'text-amber-700 text-right'
+                        : 'text-spiritual-600 text-left'
+                    }`}>
+                      {message.sender === 'user' ? 'You' : 'Spiritual Guide'}
+                    </div>
+                    
+                    {/* Message Content */}
+                    <div className={`leading-relaxed ${
+                      message.sender === 'user'
+                        ? 'text-amber-900 text-right'
+                        : 'text-spiritual-900 text-left'
+                    }`}>
+                      {message.text}
+                    </div>
+                    
+                    {/* Citations for AI messages */}
+                    {message.sender === 'ai' && message.citations && message.citations.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-amber-100">
+                        <div className="text-xs text-amber-600 font-medium mb-2">📚 Sources:</div>
+                        <div className="space-y-1">
+                          {message.citations.map((citation, idx) => (
+                            <div key={idx} className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                              {citation.title || citation.documentId || `Source ${idx + 1}`}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Timestamp */}
+                    <div className={`text-xs mt-3 ${
+                      message.sender === 'user'
+                        ? 'text-amber-600 text-right'
+                        : 'text-spiritual-500 text-left'
+                    }`}>
+                      {message.timestamp.toLocaleTimeString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+        )}
 
         {/* Source Materials Display - Moved to secondary position */}
         <div className="mt-12 transition-all duration-300 ease-in-out">
