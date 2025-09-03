@@ -735,7 +735,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Execute minimal test with session support
-      const result = await executeMinimalDiscoveryEngineSearch(question, accessToken.token, apiEndpoint, googleSessionPath)
+      const result = await executeMinimalDiscoveryEngineSearch(question, accessToken.token, apiEndpoint, googleSessionPath || undefined)
 
       responseData = {
         answer: {

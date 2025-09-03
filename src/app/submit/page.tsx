@@ -222,10 +222,12 @@ export default function SubmitPage() {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Main Content Container with consistent spacing */}
+        <div className="space-y-8">
+          {/* 1. Category Selector */}
           <CategoryDropdown />
 
-          {/* Question Input Area - Now prominently positioned */}
+          {/* 2. Question Input Area */}
           <div className="bg-premium-card border border-premium rounded-xl p-6 sm:p-8 premium-shadow">
             <div className="flex items-center justify-between mb-4">
               <label className="block text-premium-lg font-semibold text-spiritual-950">Your Question</label>
@@ -255,137 +257,144 @@ export default function SubmitPage() {
             </div>
           </div>
 
-          {/* Ask for Guidance Button - Immediately below question input */}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className={`w-full button-primary-spiritual transition-all duration-200 ${
-              !question.trim() 
-                ? 'opacity-60 cursor-not-allowed bg-gray-400 hover:bg-gray-400 hover:transform-none' 
-                : 'cursor-pointer hover:bg-spiritual-600 hover:transform hover:scale-105'
-            } ${
-              isSubmitting 
-                ? 'opacity-75 cursor-wait' 
-                : ''
-            }`}
-          >
-            {isSubmitting ? (
-              <div className="flex items-center justify-center space-x-3">
-                <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Seeking Wisdom...</span>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center space-x-3">
-                <Send className="w-6 h-6" />
-                <span>Ask for Guidance</span>
+          {/* 3. Ask for Guidance Button */}
+          <form onSubmit={handleSubmit}>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`w-full button-primary-spiritual transition-all duration-200 ${
+                !question.trim() 
+                  ? 'opacity-60 cursor-not-allowed bg-gray-400 hover:bg-gray-400 hover:transform-none' 
+                  : 'cursor-pointer hover:bg-spiritual-600 hover:transform hover:scale-105'
+              } ${
+                isSubmitting 
+                  ? 'opacity-75 cursor-wait' 
+                  : ''
+              }`}
+            >
+              {isSubmitting ? (
+                <div className="flex items-center justify-center space-x-3">
+                  <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Seeking Wisdom...</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center space-x-3">
+                  <Send className="w-6 h-6" />
+                  <span>Ask for Guidance</span>
+                </div>
+              )}
+            </button>
+            
+            {/* Validation Error Message */}
+            {showValidationError && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm text-center animate-pulse">
+                Please enter your question before seeking guidance.
               </div>
             )}
-          </button>
-          
-          {/* Validation Error Message */}
-          {showValidationError && (
-            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm text-center animate-pulse">
-              Please enter your question before seeking guidance.
-            </div>
-          )}
-        </form>
+          </form>
 
-        {/* AI Response */}
-        <div className="mt-12">
-          <AIResponse 
-            response={aiResponse} 
-            isLoading={isLoadingAI} 
-            error={aiError} 
-          />
-          
-          {/* Prominent New Conversation Button - When response is present */}
-          {aiResponse && (
-            <div className="mt-8 text-center">
-              <button
-                onClick={handleNewConversation}
-                className="button-secondary-spiritual inline-flex items-center"
-                title="Start a new conversation"
-              >
-                <RefreshCw className="w-5 h-5 mr-2" />
-                <span>Start New Conversation</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Message History Display */}
-        {messages.length > 0 && (
-          <div className="mt-8 bg-premium-card border border-premium rounded-xl p-6 premium-shadow">
+          {/* 4. Conversation History - Always visible */}
+          <div className="bg-premium-card border border-premium rounded-xl p-6 premium-shadow">
             <h3 className="text-premium-lg font-semibold text-spiritual-950 mb-4 flex items-center">
               <span className="mr-2">💬</span>
               Conversation History
             </h3>
             <div className="space-y-4 max-h-96 overflow-y-auto p-2">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${
-                    message.sender === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
+              {messages.length > 0 ? (
+                messages.map((message) => (
                   <div
-                    className={`max-w-[80%] ${
-                      message.sender === 'user'
-                        ? 'bg-amber-100 border border-amber-200 rounded-l-lg rounded-tr-lg'
-                        : 'bg-white border border-amber-100 rounded-r-lg rounded-tl-lg'
-                    } p-4 shadow-sm`}
+                    key={message.id}
+                    className={`flex ${
+                      message.sender === 'user' ? 'justify-end' : 'justify-start'
+                    }`}
                   >
-                    {/* Message Header */}
-                    <div className={`text-xs font-medium mb-2 ${
-                      message.sender === 'user'
-                        ? 'text-amber-700 text-right'
-                        : 'text-spiritual-600 text-left'
-                    }`}>
-                      {message.sender === 'user' ? 'You' : 'Spiritual Guide'}
-                    </div>
-                    
-                    {/* Message Content */}
-                    <div className={`leading-relaxed ${
-                      message.sender === 'user'
-                        ? 'text-amber-900 text-right'
-                        : 'text-spiritual-900 text-left'
-                    }`}>
-                      {message.text}
-                    </div>
-                    
-                    {/* Citations for AI messages */}
-                    {message.sender === 'ai' && message.citations && message.citations.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-amber-100">
-                        <div className="text-xs text-amber-600 font-medium mb-2">📚 Sources:</div>
-                        <div className="space-y-1">
-                          {message.citations.map((citation, idx) => (
-                            <div key={idx} className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
-                              {citation.title || citation.documentId || `Source ${idx + 1}`}
-                            </div>
-                          ))}
-                        </div>
+                    <div
+                      className={`max-w-[80%] ${
+                        message.sender === 'user'
+                          ? 'bg-amber-100 border border-amber-200 rounded-l-lg rounded-tr-lg'
+                          : 'bg-white border border-amber-100 rounded-r-lg rounded-tl-lg'
+                      } p-4 shadow-sm`}
+                    >
+                      {/* Message Header */}
+                      <div className={`text-xs font-medium mb-2 ${
+                        message.sender === 'user'
+                          ? 'text-amber-700 text-right'
+                          : 'text-spiritual-600 text-left'
+                      }`}>
+                        {message.sender === 'user' ? 'You' : 'Spiritual Guide'}
                       </div>
-                    )}
-                    
-                    {/* Timestamp */}
-                    <div className={`text-xs mt-3 ${
-                      message.sender === 'user'
-                        ? 'text-amber-600 text-right'
-                        : 'text-spiritual-500 text-left'
-                    }`}>
-                      {message.timestamp.toLocaleTimeString()}
+                      
+                      {/* Message Content */}
+                      <div className={`leading-relaxed ${
+                        message.sender === 'user'
+                          ? 'text-amber-900 text-right'
+                          : 'text-spiritual-900 text-left'
+                      }`}>
+                        {message.text}
+                      </div>
+                      
+                      {/* Citations for AI messages */}
+                      {message.sender === 'ai' && message.citations && message.citations.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-amber-100">
+                          <div className="text-xs text-amber-600 font-medium mb-2">📚 Sources:</div>
+                          <div className="space-y-1">
+                            {message.citations.map((citation, idx) => (
+                              <div key={idx} className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                                {citation.title || citation.documentId || `Source ${idx + 1}`}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Timestamp */}
+                      <div className={`text-xs mt-3 ${
+                        message.sender === 'user'
+                          ? 'text-amber-600 text-right'
+                          : 'text-spiritual-500 text-left'
+                      }`}>
+                        {message.timestamp.toLocaleTimeString()}
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-spiritual-500">
+                  <span className="text-2xl mb-2 block">💬</span>
+                  <p>Your spiritual conversation will appear here</p>
                 </div>
-              ))}
+              )}
               <div ref={messagesEndRef} />
             </div>
           </div>
-        )}
 
-        {/* Source Materials Display - Moved to secondary position */}
-        <div className="mt-12 transition-all duration-300 ease-in-out">
-          <SourceMaterialsDisplay selectedCategory={category} />
+          {/* 5. Sacred Sources Section */}
+          <div className="transition-all duration-300 ease-in-out">
+            <SourceMaterialsDisplay selectedCategory={category} />
+          </div>
+
+          {/* 6. Spiritual Guidance Display (AI Response) */}
+          <div>
+            <AIResponse 
+              response={aiResponse} 
+              isLoading={isLoadingAI} 
+              error={aiError} 
+            />
+            
+            {/* Prominent New Conversation Button - When response is present */}
+            {aiResponse && (
+              <div className="mt-8 text-center">
+                <button
+                  onClick={handleNewConversation}
+                  className="button-secondary-spiritual inline-flex items-center"
+                  title="Start a new conversation"
+                >
+                  <RefreshCw className="w-5 h-5 mr-2" />
+                  <span>Start New Conversation</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
