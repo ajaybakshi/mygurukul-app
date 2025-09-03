@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google-cloud/discoveryengine": "^2.4.0",
+    "@google-cloud/storage": "^7.17.0",
     "@tailwindcss/typography": "^0.5.16",
     "google-auth-library": "^10.2.1",
     "lucide-react": "^0.294.0",

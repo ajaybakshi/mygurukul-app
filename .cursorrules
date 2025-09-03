@@ -1,36 +1,5 @@
-# MyGurukul Spiritual AI App - Cursor Rules
-
-## Core Development Principles
-- Only alter code that directly pertains to the specific request
-- Never substitute code with placeholders like "// ... rest of the code ..."
-- Always include complete, working code
-- Break down problems into smaller components before implementing
-- Provide complete PLAN and REASONING before making changes
-
-## Project Context
-- This is a Next.js 14 spiritual AI app called MyGurukul
-- Uses Google Discovery Engine API for spiritual guidance from sacred texts
-- Authentication via Google Cloud service account (stored in .env.local)
-- UI theme: Golden spiritual colors (#D4AF37, warm browns)
-- Target: Mobile-first responsive design for spiritual seekers
-
-## Technology Stack
-- Next.js 14 with App Router
-- TypeScript for type safety
-- Tailwind CSS for styling with custom spiritual theme
-- Google Discovery Engine for AI responses
-- React components with proper error boundaries
-
-## Code Quality Standards
-- Always use TypeScript interfaces for API responses
-- Include proper error handling in all API calls
-- Log important operations for debugging
-- Maintain the spiritual theme colors and mobile-first design
-- Test API integrations before deploying changes
-
-## Never Break These Rules
-- Don't modify working API authentication
-- Don't change the spiritual color scheme
-- Don't remove error handling from API calls
-- Don't break the mobile navigation structure
-- Always preserve the .env.local configuration
+# Always Works™ Implementation Rules
+- Every code change must be immediately testable
+- No "trust me, it works" commits
+- 30-second verification before moving forward
+- Embarrassment test: "Would I be comfortable showing this to a user?"
