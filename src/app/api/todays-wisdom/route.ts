@@ -207,17 +207,23 @@ async function selectTodaysWisdomFromFiles(
     let finalEncouragement = generateEncouragement(determineWisdomType(extractedContent.narrative));
     
     try {
+      console.log('Attempting AI enhancement...');
       const enhancedWisdom = await createEnhancedWisdom(extractedContent, sourceName);
+      console.log('AI enhancement response received, length:', enhancedWisdom?.length || 0);
+      
       if (enhancedWisdom && enhancedWisdom.length > 50) {
         finalWisdom = enhancedWisdom;
         finalEncouragement = generateContextualEncouragement(enhancedWisdom);
         console.log('AI enhancement successful, length:', enhancedWisdom.length);
+        console.log('Enhanced wisdom preview:', enhancedWisdom.substring(0, 100) + '...');
       } else {
         console.log('AI enhancement failed or returned short content, using fallback');
+        console.log('Fallback content length:', extractedContent.narrative.length);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.log('AI enhancement error:', errorMessage);
+      console.log('Using fallback narrative');
     }
     
     const type = determineWisdomType(finalWisdom);
@@ -281,6 +287,7 @@ Format as a warm, compassionate response (300-450 words) that feels like persona
 
 Make it personal, relatable, and deeply inspiring - not academic or distant.`;
 
+    console.log('Making Perplexity API call...');
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
@@ -288,19 +295,29 @@ Make it personal, relatable, and deeply inspiring - not academic or distant.`;
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 600,
         temperature: 0.7
       })
     });
 
+    console.log('Perplexity API response status:', response.status);
+    
     if (response.ok) {
       const data = await response.json();
-      return data.choices[0].message.content;
+      console.log('Perplexity API response received, choices:', data.choices?.length || 0);
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        return data.choices[0].message.content;
+      } else {
+        console.log('Unexpected Perplexity API response format:', JSON.stringify(data, null, 2));
+        return extractedContent.narrative;
+      }
+    } else {
+      const errorText = await response.text();
+      console.log('Perplexity API error response:', errorText);
+      return extractedContent.narrative;
     }
-    
-    return extractedContent.narrative; // Fallback to clean narrative
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.log('AI enhancement failed:', errorMessage);
