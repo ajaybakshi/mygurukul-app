@@ -71,7 +71,8 @@ async function getAllFilesFromFolder(folderName: string): Promise<{ fileName: st
           }
         }
       } catch (fileError) {
-        console.warn(`Skipping file ${file.name}:`, fileError.message);
+        const errorMessage = fileError instanceof Error ? fileError.message : 'Unknown error';
+        console.warn(`Skipping file ${file.name}:`, errorMessage);
       }
     }
     
@@ -80,7 +81,8 @@ async function getAllFilesFromFolder(folderName: string): Promise<{ fileName: st
     
   } catch (error) {
     console.error('Error accessing folder in Google Cloud Storage:', error);
-    throw new Error(`Failed to retrieve files from ${folderName}: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to retrieve files from ${folderName}: ${errorMessage}`);
   }
 }
 
@@ -139,8 +141,8 @@ async function selectTodaysWisdomFromFiles(
 ): Promise<TodaysWisdom> {
   try {
     // Combine all content for analysis
-    const allSections = [];
-    const filesSearched = [];
+    const allSections: Array<{ content: string; source: string; metadata?: string }> = [];
+    const filesSearched: string[] = [];
     
     files.forEach(file => {
       filesSearched.push(file.fileName);
@@ -214,7 +216,8 @@ async function selectTodaysWisdomFromFiles(
         console.log('AI enhancement failed or returned short content, using fallback');
       }
     } catch (error) {
-      console.log('AI enhancement error:', error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.log('AI enhancement error:', errorMessage);
     }
     
     const type = determineWisdomType(finalWisdom);
@@ -299,7 +302,8 @@ Make it personal, relatable, and deeply inspiring - not academic or distant.`;
     
     return extractedContent.narrative; // Fallback to clean narrative
   } catch (error) {
-    console.log('AI enhancement failed:', error.message);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.log('AI enhancement failed:', errorMessage);
     return extractedContent.narrative;
   }
 }
@@ -365,7 +369,7 @@ export async function POST(request: NextRequest) {
       { 
         success: false,
         error: 'Failed to fetch today\'s wisdom',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : 'Unknown error') : undefined,
         fallbackWisdom: {
           wisdom: "The path to wisdom begins with a single step. Each day brings new opportunities for spiritual growth and understanding.",
           context: "Daily inspiration from the sacred texts",
