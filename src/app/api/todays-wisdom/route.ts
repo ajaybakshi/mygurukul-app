@@ -137,8 +137,8 @@ function extractMetadataAndContent(text: string, selectedIndex: number) {
   const cleanText = text.replace(/\[.*?\]/g, '').replace(/\n{3,}/g, '\n\n');
   const sentences = cleanText.split(/[.!?]+/).filter(s => s.trim().length > 20);
   
-  const contextStart = Math.max(0, selectedIndex - 2);
-  const contextEnd = Math.min(sentences.length, selectedIndex + 3);
+  const contextStart = Math.max(0, selectedIndex - 5);
+  const contextEnd = Math.min(sentences.length, selectedIndex + 5);
   let narrative = sentences.slice(contextStart, contextEnd).join('. ').trim() + '.';
   
   narrative = narrative
