@@ -470,28 +470,30 @@ function selectMultiDimensionalWisdom(sections: EnhancedSection[], userHistory: 
   return scoredSections[0].section;
 }
 
-function extractChapterInfo(fileName: string, metadata: string): {chapter: string, section: string} {
-  let chapter = 'Unknown Chapter';
-  let section = 'Unknown Section';
-  
-  const kandaMatch = fileName.match(/Kanda(\d+)([A-Za-z]+)/i);
-  if (kandaMatch) {
-    const kandaNum = kandaMatch[1];
-    const kandaName = kandaMatch[2];
-    chapter = `Kanda ${kandaNum} - ${kandaName}`;
-  }
-  
-  const sectionMatch = metadata.match(/\[SECTION[:\s]+([^\]]+)\]/i);
-  if (sectionMatch) {
-    section = sectionMatch[1];
-  } else {
-    const characterMatch = metadata.match(/\[CHARACTERS[:\s]+([^\]]+)\]/i);
-    if (characterMatch) {
-      section = `Episode featuring ${characterMatch[1]}`;
+function extractChapterInfo(fileName: string, metadata: string): { chapter: string, section: string } {
+    let chapter = 'Sacred Chapter';
+    let section = 'Sacred Section';
+
+    // Extract Kanda from filename (Ramayana_Kanda_1_Balakandam_Cleaned.txt)
+    const kandaMatch = fileName.match(/Kanda_(\d+)_([A-Z][a-z]+)kandam/i);
+    if (kandaMatch) {
+        const num = kandaMatch[1];
+        const name = kandaMatch[2].replace(/([A-Z])/g, ' $1').trim();
+        chapter = `Kanda ${num} - ${name} Kandam`;
     }
-  }
-  
-  return { chapter, section };
+
+    // Extract section from metadata [SECTION: xyz] or fallback to [CHARACTERS: abc]
+    const sectionMatch = metadata.match(/\[SECTION[:]?\s*([^\]]+)\]/i);
+    if (sectionMatch) {
+        section = sectionMatch[1].trim();
+    } else {
+        const charMatch = metadata.match(/\[CHARACTERS[:]?\s*([^\]]+)\]/i);
+        if (charMatch) {
+            section = `Episode featuring ${charMatch[1].trim()}`;
+        }
+    }
+
+    return { chapter, section };
 }
 
 export async function POST(request: NextRequest) {
