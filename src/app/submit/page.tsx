@@ -113,65 +113,68 @@ export default function SubmitPage() {
         </Link>
       </header>
 
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-10">
-          <h1 className="text-premium-3xl font-bold text-spiritual-950 mb-4">
-            Ask a Spiritual Question
-          </h1>
-          <p className="text-premium-lg text-spiritual-700 max-w-2xl mx-auto leading-relaxed">
-            Seek wisdom from ancient spiritual texts and receive AI-powered guidance.
-          </p>
+      <div className="max-w-4xl mx-auto flex flex-col min-h-screen">
+        {/* Chat Section - Fixed Priority Height */}
+        <div className="flex-1 flex flex-col">
+          <div className="text-center mb-10">
+            <h1 className="text-premium-3xl font-bold text-spiritual-950 mb-4">
+              Ask a Spiritual Question
+            </h1>
+            <p className="text-premium-lg text-spiritual-700 max-w-2xl mx-auto leading-relaxed">
+              Seek wisdom from ancient spiritual texts and receive AI-powered guidance.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <CategoryDropdown />
+
+            <div className="bg-premium-card border border-premium rounded-xl p-6 sm:p-8 premium-shadow">
+              <label className="block text-premium-lg font-semibold text-spiritual-950 mb-4">Your Question</label>
+              <textarea
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                placeholder="Share your spiritual question or concern..."
+                className="w-full p-5 border border-premium rounded-xl bg-white text-spiritual-950 placeholder-spiritual-500 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent resize-none transition-all duration-200 hover:border-premium-hover hover:shadow-md text-premium-base leading-relaxed"
+                rows={6}
+                maxLength={500}
+              />
+              <div className="text-right text-premium-sm text-spiritual-600 mt-3">
+                {question.length}/500
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting || !question.trim()}
+              className="w-full button-premium text-white py-5 px-8 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] touch-manipulation text-premium-lg font-semibold"
+            >
+              {isSubmitting ? (
+                <div className="flex items-center justify-center space-x-3">
+                  <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Seeking Wisdom...</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center space-x-3">
+                  <Send className="w-6 h-6" />
+                  <span>Ask for Guidance</span>
+                </div>
+              )}
+            </button>
+          </form>
+
+          {/* AI Response */}
+          <div className="mt-12">
+            <AIResponse 
+              response={aiResponse} 
+              isLoading={isLoadingAI} 
+              error={aiError} 
+            />
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <CategoryDropdown />
-
-          {/* Source Materials Display with smooth transitions */}
-          <div className="transition-all duration-300 ease-in-out">
-            <SourceMaterialsDisplay selectedCategory={category} />
-          </div>
-
-          <div className="bg-premium-card border border-premium rounded-xl p-6 sm:p-8 premium-shadow">
-            <label className="block text-premium-lg font-semibold text-spiritual-950 mb-4">Your Question</label>
-            <textarea
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Share your spiritual question or concern..."
-              className="w-full p-5 border border-premium rounded-xl bg-white text-spiritual-950 placeholder-spiritual-500 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent resize-none transition-all duration-200 hover:border-premium-hover hover:shadow-md text-premium-base leading-relaxed"
-              rows={6}
-              maxLength={500}
-            />
-            <div className="text-right text-premium-sm text-spiritual-600 mt-3">
-              {question.length}/500
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting || !question.trim()}
-            className="w-full button-premium text-white py-5 px-8 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] touch-manipulation text-premium-lg font-semibold"
-          >
-            {isSubmitting ? (
-              <div className="flex items-center justify-center space-x-3">
-                <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Seeking Wisdom...</span>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center space-x-3">
-                <Send className="w-6 h-6" />
-                <span>Ask for Guidance</span>
-              </div>
-            )}
-          </button>
-        </form>
-
-        {/* AI Response */}
-        <div className="mt-12">
-          <AIResponse 
-            response={aiResponse} 
-            isLoading={isLoadingAI} 
-            error={aiError} 
-          />
+        {/* Source Materials Display - Secondary Position, Scrollable */}
+        <div className="mt-12 transition-all duration-300 ease-in-out max-h-96 overflow-y-auto">
+          <SourceMaterialsDisplay selectedCategory={category} />
         </div>
       </div>
     </div>
