@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Storage } from '@google-cloud/storage';
 
 interface TodaysWisdom {
+  // Raw sacred text (what seeker reads first)
+  rawText: string;
+  rawTextAnnotation: {
+    chapter: string;
+    section: string;
+    source: string;
+    characters?: string;
+    location?: string;
+    theme?: string;
+  };
+  
+  // AI enhanced interpretation (Guru's wisdom)
   wisdom: string;
   context: string;
   type: 'story' | 'verse' | 'teaching';
@@ -219,7 +231,21 @@ async function selectTodaysWisdomFromFiles(
       console.log('AI enhancement error, using fallback');
     }
     
+    const chapterInfo = extractChapterInfo(selectedSection.source, extractedContent.metadata);
+
     return {
+      // Raw sacred text (what seeker reads first)
+      rawText: extractedContent.narrative,
+      rawTextAnnotation: {
+        chapter: chapterInfo.chapter,
+        section: chapterInfo.section,
+        source: selectedSection.source,
+        characters: selectedSection.dimensions.character,
+        location: selectedSection.dimensions.location,
+        theme: selectedSection.dimensions.theme
+      },
+      
+      // AI enhanced interpretation (Guru's wisdom)
       wisdom: finalWisdom,
       context: `Daily wisdom from ${sourceName} - ${selectedSection.dimensions.character || 'Sacred'} wisdom on ${selectedSection.dimensions.theme || 'spiritual growth'}`,
       type: determineWisdomType(finalWisdom),
@@ -234,6 +260,15 @@ async function selectTodaysWisdomFromFiles(
   } catch (error) {
     console.error('Error selecting wisdom:', error);
     return {
+      rawText: `The sacred texts of ${sourceName} contain infinite wisdom. Each verse, each story carries profound meaning for those who seek truth and righteousness.`,
+      rawTextAnnotation: {
+        chapter: 'Unknown Chapter',
+        section: 'Unknown Section',
+        source: 'Sacred Texts',
+        characters: 'Unknown',
+        location: 'Sacred Realm',
+        theme: 'wisdom'
+      },
       wisdom: `The sacred texts of ${sourceName} contain infinite wisdom. Each verse, each story carries profound meaning for those who seek truth and righteousness.`,
       context: `Daily wisdom from ${sourceName}`,
       type: 'teaching',
@@ -435,6 +470,30 @@ function selectMultiDimensionalWisdom(sections: EnhancedSection[], userHistory: 
   return scoredSections[0].section;
 }
 
+function extractChapterInfo(fileName: string, metadata: string): {chapter: string, section: string} {
+  let chapter = 'Unknown Chapter';
+  let section = 'Unknown Section';
+  
+  const kandaMatch = fileName.match(/Kanda(\d+)([A-Za-z]+)/i);
+  if (kandaMatch) {
+    const kandaNum = kandaMatch[1];
+    const kandaName = kandaMatch[2];
+    chapter = `Kanda ${kandaNum} - ${kandaName}`;
+  }
+  
+  const sectionMatch = metadata.match(/\[SECTION[:\s]+([^\]]+)\]/i);
+  if (sectionMatch) {
+    section = sectionMatch[1];
+  } else {
+    const characterMatch = metadata.match(/\[CHARACTERS[:\s]+([^\]]+)\]/i);
+    if (characterMatch) {
+      section = `Episode featuring ${characterMatch[1]}`;
+    }
+  }
+  
+  return { chapter, section };
+}
+
 export async function POST(request: NextRequest) {
   let sourceName: string = '';
   
@@ -473,6 +532,15 @@ export async function POST(request: NextRequest) {
         error: 'Failed to fetch today\'s wisdom',
         details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : 'Unknown error') : undefined,
         fallbackWisdom: {
+          rawText: "The path to wisdom begins with a single step. Each day brings new opportunities for spiritual growth and understanding.",
+          rawTextAnnotation: {
+            chapter: 'Unknown Chapter',
+            section: 'Unknown Section',
+            source: 'Sacred Texts',
+            characters: 'Unknown',
+            location: 'Sacred Realm',
+            theme: 'wisdom'
+          },
           wisdom: "The path to wisdom begins with a single step. Each day brings new opportunities for spiritual growth and understanding.",
           context: "Daily inspiration from the sacred texts",
           type: "teaching",
