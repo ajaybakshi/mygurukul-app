@@ -1,8 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import TraditionalWisdomDisplay from '@/components/TraditionalWisdomDisplay';
 
 interface TodaysWisdom {
+  rawText: string;
+  rawTextAnnotation: {
+    chapter: string;
+    section: string;
+    source: string;
+    characters?: string;
+    location?: string;
+    theme?: string;
+  };
   wisdom: string;
   context: string;
   type: 'story' | 'verse' | 'teaching';
@@ -11,6 +21,7 @@ interface TodaysWisdom {
   encouragement: string;
   sourceLocation?: string;
   filesSearched?: string[];
+  metadata?: string;
 }
 
 interface ApiResponse {
@@ -132,85 +143,12 @@ export default function TestWisdomPage() {
               )}
             </div>
 
-            {/* Wisdom Content */}
+            {/* Traditional Wisdom Display */}
             {(response.todaysWisdom || response.fallbackWisdom) && (
-              <div className="bg-white border border-amber-200 rounded-lg p-6 shadow-lg">
-                <h3 className="text-xl font-semibold text-amber-800 mb-4">
-                  🌟 {response.todaysWisdom ? 'Today\'s Wisdom' : 'Fallback Wisdom'}
-                </h3>
-                
-                {response.todaysWisdom && (
-                  <div className="space-y-4">
-                    {/* Wisdom Type Badge */}
-                    <div className="inline-block">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        response.todaysWisdom.type === 'story' ? 'bg-blue-100 text-blue-800' :
-                        response.todaysWisdom.type === 'verse' ? 'bg-purple-100 text-purple-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {response.todaysWisdom.type.toUpperCase()}
-                      </span>
-                    </div>
-
-                    {/* Wisdom Text */}
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <p className="text-amber-900 leading-relaxed whitespace-pre-wrap">
-                        {response.todaysWisdom.wisdom}
-                      </p>
-                    </div>
-
-                    {/* Context */}
-                    <div className="text-sm text-gray-600">
-                      <p><strong>Context:</strong> {response.todaysWisdom.context}</p>
-                      {response.todaysWisdom.sourceLocation && (
-                        <p><strong>Source:</strong> {response.todaysWisdom.sourceLocation}</p>
-                      )}
-                      <p><strong>Timestamp:</strong> {formatTimestamp(response.todaysWisdom.timestamp)}</p>
-                    </div>
-
-                    {/* Encouragement */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-blue-800 font-medium">
-                        💡 {response.todaysWisdom.encouragement}
-                      </p>
-                    </div>
-
-                    {/* Files Searched */}
-                    {response.todaysWisdom.filesSearched && response.todaysWisdom.filesSearched.length > 0 && (
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-800 mb-2">📁 Files Processed:</h4>
-                        <div className="space-y-1">
-                          {response.todaysWisdom.filesSearched.map((fileName, index) => (
-                            <div key={index} className="text-sm text-gray-600 font-mono">
-                              {fileName}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Fallback Wisdom */}
-                {!response.todaysWisdom && response.fallbackWisdom && (
-                  <div className="space-y-4">
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <p className="text-yellow-800 font-medium mb-2">
-                        ⚠️ Using fallback wisdom due to API issues
-                      </p>
-                      <p className="text-yellow-700">
-                        {response.fallbackWisdom.wisdom}
-                      </p>
-                    </div>
-                    
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-blue-800 font-medium">
-                        💡 {response.fallbackWisdom.encouragement}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <TraditionalWisdomDisplay 
+                wisdomData={response.todaysWisdom || response.fallbackWisdom!} 
+                isLoading={isLoading}
+              />
             )}
 
             {/* Raw Response (Development) */}
