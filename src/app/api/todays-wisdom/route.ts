@@ -10,8 +10,41 @@ interface TodaysWisdom {
   encouragement: string;
   sourceLocation?: string;
   filesSearched?: string[];
-  metadata?: string; // Include metadata for transparency
+  metadata?: string;
 }
+
+interface WisdomDimensions {
+  character?: string;
+  theme?: string;
+  location?: string;
+  narrativeType?: string;
+  emotionalTone?: string;
+  complexity?: string;
+}
+
+interface UserWisdomHistory {
+  recentSelections: string[];
+  sessionCount: number;
+  lastAccess: string;
+  preferredComplexity: 'simple' | 'intermediate' | 'advanced';
+}
+
+interface EnhancedSection {
+  content: string;
+  source: string;
+  metadata?: string;
+  dimensions: WisdomDimensions;
+  uniqueId: string;
+}
+
+const WISDOM_DIMENSIONS = {
+  characters: ['Rama', 'Sita', 'Lakshmana', 'Hanuman', 'Ravana', 'Bharata', 'Dasharatha', 'Kaikeyi'],
+  themes: ['dharma', 'devotion', 'courage', 'sacrifice', 'wisdom', 'love', 'duty', 'truth'],
+  locations: ['Ayodhya', 'forest', 'Lanka', 'Mithila', 'Chitrakoot', 'Panchavati', 'Kishkindha'],
+  narrativeTypes: ['dialogue', 'action', 'reflection', 'teaching', 'prophecy', 'ceremony', 'battle'],
+  emotionalTones: ['inspiring', 'contemplative', 'dramatic', 'peaceful', 'heroic', 'compassionate'],
+  complexity: ['simple', 'intermediate', 'advanced']
+};
 
 // Initialize Google Cloud Storage
 function initializeStorage() {
@@ -47,7 +80,6 @@ async function getAllFilesFromFolder(folderName: string): Promise<{ fileName: st
     const bucketName = 'mygurukul-sacred-texts-corpus';
     const bucket = storage.bucket(bucketName);
     
-    // List all files in the folder
     const [files] = await bucket.getFiles({
       prefix: folderName + '/',
     });
@@ -56,14 +88,13 @@ async function getAllFilesFromFolder(folderName: string): Promise<{ fileName: st
     
     const fileContents = [];
     
-    // Download content from each file
     for (const file of files) {
       try {
         if (file.name.endsWith('.txt') || file.name.endsWith('.json')) {
           const [data] = await file.download();
           const content = data.toString('utf8');
           
-          if (content.length > 100) { // Only include files with substantial content
+          if (content.length > 100) {
             fileContents.push({
               fileName: file.name,
               content: content
@@ -88,24 +119,20 @@ async function getAllFilesFromFolder(folderName: string): Promise<{ fileName: st
 
 // Enhanced extraction function for both metadata and narrative content
 function extractMetadataAndContent(text: string, selectedIndex: number) {
-  // Extract metadata tags
   const metadataMatches = text.match(/\[.*?\]/g) || [];
   const metadata = metadataMatches.join(' ');
   
-  // Extract clean narrative content
   const cleanText = text.replace(/\[.*?\]/g, '').replace(/\n{3,}/g, '\n\n');
   const sentences = cleanText.split(/[.!?]+/).filter(s => s.trim().length > 20);
   
-  // Get 3-5 sentences of context around the selected wisdom
   const contextStart = Math.max(0, selectedIndex - 2);
   const contextEnd = Math.min(sentences.length, selectedIndex + 3);
   let narrative = sentences.slice(contextStart, contextEnd).join('. ').trim() + '.';
   
-  // Clean up formatting: remove extra quotes, newlines, and normalize spacing
   narrative = narrative
-    .replace(/^["\s\n]+/, '') // Remove leading quotes and whitespace
-    .replace(/["\s\n]+$/, '') // Remove trailing quotes and whitespace
-    .replace(/\s+/g, ' ') // Normalize multiple spaces to single space
+    .replace(/^["\s\n]+/, '')
+    .replace(/["\s\n]+$/, '')
+    .replace(/\s+/g, ' ')
     .trim();
   
   return {
@@ -117,91 +144,65 @@ function extractMetadataAndContent(text: string, selectedIndex: number) {
 
 // Extract actual story content from text, removing metadata and structural annotations
 function extractActualContent(text: string): string {
-  // Remove all metadata tags in brackets
   let cleanText = text.replace(/\[.*?\]/g, '');
   
-  // Split into paragraphs and filter for meaningful content
   const paragraphs = cleanText.split('\n\n').filter(paragraph => {
     const trimmed = paragraph.trim();
     return trimmed.length > 100 && 
            !trimmed.match(/^(KANDA|SECTION|CHARACTERS|PLACES|THEMES|CONTEXT):/i) &&
-           !trimmed.match(/^\d+\./) && // Remove numbered sections
-           !trimmed.match(/^[A-Z\s]+:$/i) && // Remove section headers
-           !trimmed.match(/^---+$/); // Remove separator lines
+           !trimmed.match(/^\d+\./) &&
+           !trimmed.match(/^[A-Z\s]+:$/i) &&
+           !trimmed.match(/^---+$/);
   });
   
-  // Return the most story-like paragraphs
   return paragraphs.slice(0, 3).join('\n\n');
 }
 
-// Extract wisdom from multiple files
+// Multi-dimensional wisdom selection - THE CORE ENHANCEMENT
 async function selectTodaysWisdomFromFiles(
   files: { fileName: string; content: string }[], 
   sourceName: string
 ): Promise<TodaysWisdom> {
   try {
-    // Combine all content for analysis
-    const allSections: Array<{ content: string; source: string; metadata?: string }> = [];
+    // Phase 1: Extract and categorize all content sections
+    const enhancedSections: EnhancedSection[] = [];
     const filesSearched: string[] = [];
     
     files.forEach(file => {
       filesSearched.push(file.fileName);
-      
-      // Extract actual story content, not metadata
       const actualContent = extractActualContent(file.content);
       
       if (actualContent.length > 200) {
-        // Split into sentences for better context extraction
         const sentences = actualContent.split(/[.!?]+/).filter(s => s.trim().length > 50);
         
-        // Create content chunks with full context (3-5 sentences each)
         for (let i = 0; i < sentences.length; i++) {
           const extractedContent = extractMetadataAndContent(actualContent, i);
           
           if (extractedContent.narrative.length > 150 && extractedContent.narrative.length < 2000) {
-            allSections.push({
+            const dimensions = analyzeDimensions(extractedContent.combined, file.fileName);
+            const uniqueId = generateUniqueId(extractedContent.narrative, dimensions);
+            
+            enhancedSections.push({
               content: extractedContent.narrative,
               source: file.fileName,
-              metadata: extractedContent.metadata
+              metadata: extractedContent.metadata,
+              dimensions,
+              uniqueId
             });
           }
         }
       }
     });
+
+    // Phase 2: Multi-dimensional selection with user history
+    const userHistory = getUserWisdomHistory();
+    const selectedSection = selectMultiDimensionalWisdom(enhancedSections, userHistory);
     
-    if (allSections.length === 0) {
-      // Fallback: extract any meaningful content with context
-      files.forEach(file => {
-        const cleanText = file.content.replace(/\[.*?\]/g, '');
-        const sentences = cleanText.split(/[.!?]+/).filter(s => s.trim().length > 50);
-        
-        // Create fallback chunks with context
-        for (let i = 0; i < sentences.length; i++) {
-          const extractedContent = extractMetadataAndContent(cleanText, i);
-          
-          if (extractedContent.narrative.length > 150 && extractedContent.narrative.length < 2000) {
-            allSections.push({
-              content: extractedContent.narrative,
-              source: file.fileName,
-              metadata: extractedContent.metadata
-            });
-          }
-        }
-      });
-    }
-    
-    // Use current date to select wisdom
-    const today = new Date();
-    const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-    const selectedIndex = dayOfYear % Math.max(allSections.length, 1);
-    
-    const selectedSection = allSections[selectedIndex];
-    
-    // Extract both metadata and narrative content
-    const extractedContent = extractMetadataAndContent(selectedSection?.content || "", 0);
-    
-    // Get AI-enhanced wisdom using both metadata and narrative
-    console.log('Extracted content:', extractedContent);
+    // Phase 3: Update user history
+    updateUserWisdomHistory(selectedSection.uniqueId);
+
+    // Phase 4: Generate enhanced wisdom
+    const extractedContent = extractMetadataAndContent(selectedSection.content, 0);
     
     let finalWisdom = extractedContent.narrative;
     let finalEncouragement = generateEncouragement(determineWisdomType(extractedContent.narrative));
@@ -209,39 +210,26 @@ async function selectTodaysWisdomFromFiles(
     try {
       console.log('Attempting AI enhancement...');
       const enhancedWisdom = await createEnhancedWisdom(extractedContent, sourceName);
-      console.log('AI enhancement response received, length:', enhancedWisdom?.length || 0);
       
       if (enhancedWisdom && enhancedWisdom.length > 50) {
         finalWisdom = enhancedWisdom;
         finalEncouragement = generateContextualEncouragement(enhancedWisdom);
-        console.log('AI enhancement successful, length:', enhancedWisdom.length);
-        console.log('Enhanced wisdom preview:', enhancedWisdom.substring(0, 100) + '...');
-      } else {
-        console.log('AI enhancement failed or returned short content, using fallback');
-        console.log('Fallback content length:', extractedContent.narrative.length);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.log('AI enhancement error:', errorMessage);
-      console.log('Using fallback narrative');
+      console.log('AI enhancement error, using fallback');
     }
     
-    const type = determineWisdomType(finalWisdom);
-    
-    const result = {
+    return {
       wisdom: finalWisdom,
-      context: `Daily wisdom from ${sourceName} - Selected for ${today.toLocaleDateString()}`,
-      type,
+      context: `Daily wisdom from ${sourceName} - ${selectedSection.dimensions.character || 'Sacred'} wisdom on ${selectedSection.dimensions.theme || 'spiritual growth'}`,
+      type: determineWisdomType(finalWisdom),
       sourceName,
       timestamp: new Date().toISOString(),
       encouragement: finalEncouragement,
-      sourceLocation: `From ${selectedSection?.source || 'sacred texts'}`,
+      sourceLocation: `From ${selectedSection.source}`,
       filesSearched: filesSearched.slice(0, 5),
-      metadata: extractedContent.metadata // Include metadata for transparency
+      metadata: `${extractedContent.metadata} | Selection: ${JSON.stringify(selectedSection.dimensions)}`
     };
-    
-    console.log('Returning result:', result);
-    return result;
     
   } catch (error) {
     console.error('Error selecting wisdom:', error);
@@ -348,6 +336,105 @@ function generateContextualEncouragement(wisdom: string): string {
   }
 }
 
+// Multi-dimensional analysis and selection functions
+function analyzeDimensions(combinedContent: string, fileName: string): WisdomDimensions {
+  const content = combinedContent.toLowerCase();
+  
+  const character = WISDOM_DIMENSIONS.characters.find(char => 
+    content.includes(char.toLowerCase())) || 'unknown';
+  
+  const theme = WISDOM_DIMENSIONS.themes.find(theme => 
+    content.includes(theme) || 
+    (theme === 'dharma' && (content.includes('righteousness') || content.includes('duty'))) ||
+    (theme === 'devotion' && (content.includes('devotion') || content.includes('bhakti'))) ||
+    (theme === 'courage' && (content.includes('brave') || content.includes('fearless')))
+  ) || 'wisdom';
+  
+  const location = WISDOM_DIMENSIONS.locations.find(loc => 
+    content.includes(loc.toLowerCase())) || 'sacred realm';
+  
+  let narrativeType = 'teaching';
+  if (content.includes('said') || content.includes('spoke')) narrativeType = 'dialogue';
+  else if (content.includes('battle') || content.includes('fought')) narrativeType = 'action';
+  else if (content.includes('meditat') || content.includes('reflect')) narrativeType = 'reflection';
+  
+  let emotionalTone = 'contemplative';
+  if (content.includes('joy') || content.includes('celebration')) emotionalTone = 'inspiring';
+  else if (content.includes('battle') || content.includes('conflict')) emotionalTone = 'dramatic';
+  else if (content.includes('peace') || content.includes('calm')) emotionalTone = 'peaceful';
+  else if (content.includes('hero') || content.includes('victory')) emotionalTone = 'heroic';
+  
+  let complexity: 'simple' | 'intermediate' | 'advanced' = 'intermediate';
+  if (content.length < 500 && !content.includes('philosophy')) complexity = 'simple';
+  else if (content.includes('metaphysical') || content.includes('cosmic') || content.includes('brahman')) complexity = 'advanced';
+  
+  return { character, theme, location, narrativeType, emotionalTone, complexity };
+}
+
+function generateUniqueId(content: string, dimensions: WisdomDimensions): string {
+  const contentHash = content.substring(0, 50).replace(/\s+/g, '');
+  const dimensionString = `${dimensions.character}-${dimensions.theme}-${dimensions.location}`;
+  return `${dimensionString}-${contentHash.length}`;
+}
+
+// Simple user history management
+let globalUserHistory: UserWisdomHistory = {
+  recentSelections: [],
+  sessionCount: 0,
+  lastAccess: '',
+  preferredComplexity: 'simple'
+};
+
+function getUserWisdomHistory(): UserWisdomHistory {
+  const today = new Date().toDateString();
+  if (globalUserHistory.lastAccess !== today) {
+    globalUserHistory.sessionCount++;
+    globalUserHistory.lastAccess = today;
+  }
+  return globalUserHistory;
+}
+
+function updateUserWisdomHistory(uniqueId: string): void {
+  globalUserHistory.recentSelections.push(uniqueId);
+  if (globalUserHistory.recentSelections.length > 10) {
+    globalUserHistory.recentSelections = globalUserHistory.recentSelections.slice(-10);
+  }
+}
+
+function selectMultiDimensionalWisdom(sections: EnhancedSection[], userHistory: UserWisdomHistory): EnhancedSection {
+  const availableSections = sections.filter(section => 
+    !userHistory.recentSelections.includes(section.uniqueId));
+  
+  const candidateSections = availableSections.length > 0 ? availableSections : sections;
+  
+  const hour = new Date().getHours();
+  const timeOfDay = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+  
+  const scoredSections = candidateSections.map(section => {
+    let score = Math.random() * 0.3;
+    
+    if (timeOfDay === 'morning' && ['inspiring', 'peaceful'].includes(section.dimensions.emotionalTone || '')) score += 0.2;
+    if (timeOfDay === 'afternoon' && ['heroic', 'dramatic'].includes(section.dimensions.emotionalTone || '')) score += 0.2;
+    if (timeOfDay === 'evening' && ['contemplative', 'peaceful'].includes(section.dimensions.emotionalTone || '')) score += 0.2;
+    
+    if (userHistory.sessionCount < 5 && section.dimensions.complexity === 'simple') score += 0.15;
+    else if (userHistory.sessionCount < 15 && section.dimensions.complexity === 'intermediate') score += 0.15;
+    else if (userHistory.sessionCount >= 15 && section.dimensions.complexity === 'advanced') score += 0.15;
+    
+    const recentCharacters = userHistory.recentSelections.slice(-5);
+    if (!recentCharacters.some(id => id.includes(section.dimensions.character || ''))) score += 0.15;
+    
+    const dayOfWeek = new Date().getDay();
+    const preferredThemes = ['dharma', 'devotion', 'courage', 'wisdom', 'love', 'truth', 'sacrifice'];
+    if (section.dimensions.theme === preferredThemes[dayOfWeek]) score += 0.1;
+    
+    return { section, score };
+  });
+  
+  scoredSections.sort((a, b) => b.score - a.score);
+  return scoredSections[0].section;
+}
+
 export async function POST(request: NextRequest) {
   let sourceName: string = '';
   
@@ -364,14 +451,12 @@ export async function POST(request: NextRequest) {
 
     console.log(`Today's Wisdom request for folder: ${sourceName}`);
     
-    // Get all files from the folder
     const files = await getAllFilesFromFolder(sourceName);
     
     if (files.length === 0) {
       throw new Error(`No files found in folder ${sourceName}`);
     }
     
-    // Select today's wisdom from all files
     const todaysWisdom = await selectTodaysWisdomFromFiles(files, sourceName);
     
     return NextResponse.json({
