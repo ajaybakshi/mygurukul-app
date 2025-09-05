@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleAuth } from 'google-auth-library'
 import { createSessionWithFallback, buildSessionPath, generateUserPseudoId } from '@/lib/sessionManager'
+import { writeApiLog, createLogData } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  
   try {
     const { question, sessionId } = await request.json()
     
@@ -221,6 +224,19 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
       console.log('Original answerQueryToken:', data.answerQueryToken)
       console.log('Session context transfer - Input sessionId:', sessionId)
       console.log('Session context transfer - Output sessionId:', responseData.sessionId)
+      
+      // Log successful API call
+      const processingTime = Date.now() - startTime
+      const logData = createLogData(
+        requestBody,
+        responseData,
+        responseData.sessionId || newSessionId || sessionId,
+        undefined, // hybridSearch
+        processingTime,
+        undefined // errors
+      )
+      await writeApiLog(logData)
+      
       return NextResponse.json(responseData)
     } catch (error) {
       clearTimeout(timeoutId)
@@ -229,27 +245,76 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
       
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
+          const processingTime = Date.now() - startTime
+          const errorMessage = 'Request timed out after 30 seconds'
+          const errorLogData = createLogData(
+            requestBody,
+            { error: errorMessage },
+            sessionId,
+            undefined,
+            processingTime,
+            [errorMessage]
+          )
+          await writeApiLog(errorLogData)
+          
           return NextResponse.json(
-            { error: 'Request timed out after 30 seconds' },
+            { error: errorMessage },
             { status: 408 }
           )
         }
         
+        const processingTime = Date.now() - startTime
+        const errorMessage = `Network error: ${error.message}`
+        const errorLogData = createLogData(
+          requestBody,
+          { error: errorMessage },
+          sessionId,
+          undefined,
+          processingTime,
+          [errorMessage]
+        )
+        await writeApiLog(errorLogData)
+        
         return NextResponse.json(
-          { error: `Network error: ${error.message}` },
+          { error: errorMessage },
           { status: 500 }
         )
       }
       
+      const processingTime = Date.now() - startTime
+      const errorMessage = 'Unknown error occurred'
+      const errorLogData = createLogData(
+        requestBody,
+        { error: errorMessage },
+        sessionId,
+        undefined,
+        processingTime,
+        [errorMessage]
+      )
+      await writeApiLog(errorLogData)
+      
       return NextResponse.json(
-        { error: 'Unknown error occurred' },
+        { error: errorMessage },
         { status: 500 }
       )
     }
   } catch (error) {
     console.log('Request parsing error:', error)
+    
+    const processingTime = Date.now() - startTime
+    const errorMessage = 'Invalid request body'
+    const errorLogData = createLogData(
+      {}, // empty requestBody since parsing failed
+      { error: errorMessage },
+      undefined,
+      undefined,
+      processingTime,
+      [errorMessage]
+    )
+    await writeApiLog(errorLogData)
+    
     return NextResponse.json(
-      { error: 'Invalid request body' },
+      { error: errorMessage },
       { status: 400 }
     )
   }
