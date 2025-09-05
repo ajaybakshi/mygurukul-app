@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleAuth } from 'google-auth-library'
+import { createSessionWithFallback, buildSessionPath, generateUserPseudoId } from '@/lib/sessionManager'
 
 export async function POST(request: NextRequest) {
   try {
-    const { question } = await request.json()
+    const { question, sessionId } = await request.json()
     
     if (!question || typeof question !== 'string') {
       return NextResponse.json(
@@ -13,6 +14,37 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Received question:', question)
+    console.log('Received sessionId:', sessionId)
+
+    // Handle session creation if no sessionId provided
+    let googleSessionPath: string | null = null;
+    let newSessionId: string | null = null;
+    
+    if (!sessionId) {
+      console.log('🔄 No session provided, creating new Google session...');
+      const userPseudoId = generateUserPseudoId();
+      googleSessionPath = await createSessionWithFallback(
+        'MyGurukul Spiritual Session',
+        userPseudoId
+      );
+      
+      if (googleSessionPath) {
+        // Extract session ID from the full path for frontend
+        newSessionId = googleSessionPath.split('/').pop() || null;
+        console.log('✅ New session created:', newSessionId);
+      } else {
+        console.log('⚠️ Session creation failed, continuing without session');
+      }
+    } else {
+      // Use existing sessionId to build proper Google session path
+      try {
+        googleSessionPath = buildSessionPath(sessionId);
+        console.log('🔄 Using existing session:', googleSessionPath);
+      } catch (error) {
+        console.log('⚠️ Invalid session format, continuing without session:', error);
+        googleSessionPath = null;
+      }
+    }
 
     // Get environment variables for service account authentication
     const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID
@@ -84,6 +116,7 @@ export async function POST(request: NextRequest) {
       query: {
         text: queryText
       },
+      ...(googleSessionPath && { session: googleSessionPath }),
       answerGenerationSpec: {
         includeCitations: true,
         promptSpec: {
@@ -124,6 +157,16 @@ Confess Ignorance Gracefully: If, after a thorough search, you cannot find a pas
 Protect Sanctity: You will never engage in arguments, debates, or casual conversation. You will not generate advertisements, sell anything, or use manipulative language. You are a pure, focused space for spiritual guidance.`
         }
       }
+    }
+
+    // Add session context if sessionId is provided
+    // Note: Google Discovery Engine API may not support conversation continuity
+    // in the current implementation. The answerQueryToken from responses
+    // might be for tracking purposes only, not for maintaining context.
+    if (sessionId) {
+      console.log('SessionId provided but Google API may not support conversation continuity:', sessionId)
+      // For now, we'll log the sessionId but not pass it to Google's API
+      // as it seems to reject the parameter
     }
 
     console.log('Request body being sent:', JSON.stringify(requestBody, null, 2))
@@ -177,9 +220,22 @@ Protect Sanctity: You will never engage in arguments, debates, or casual convers
       const data = await response.json()
       console.log('Success response from Google Discovery Engine Answer API:', JSON.stringify(data, null, 2))
 
-      // Ensure we return the complete response structure
-      // The Google Discovery Engine API returns the response directly
-      return NextResponse.json(data)
+      // Return response with session information if new session was created
+      const responseData = { ...data };
+      if (newSessionId) {
+        responseData.sessionId = newSessionId;
+        console.log('📤 Returning new session ID to frontend:', newSessionId);
+      } else if (sessionId) {
+        // Preserve existing sessionId
+        responseData.sessionId = sessionId;
+        console.log('📤 Returning existing session ID to frontend:', sessionId);
+      }
+      
+      console.log('Returning response with sessionId:', responseData.sessionId)
+      console.log('Original answerQueryToken:', data.answerQueryToken)
+      console.log('Session context transfer - Input sessionId:', sessionId)
+      console.log('Session context transfer - Output sessionId:', responseData.sessionId)
+      return NextResponse.json(responseData)
     } catch (error) {
       clearTimeout(timeoutId)
       
