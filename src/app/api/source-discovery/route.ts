@@ -4,7 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
  * Mock data simulating corpus file metadata
  * In production, this would be replaced with actual file reading logic
  */
-const mockCorpusFiles = {
+interface MockCorpusFiles {
+  [key: string]: any;
+}
+
+const mockCorpusFiles: MockCorpusFiles = {
   "bhagavad-gita-complete.json": {
     sourceName: "Bhagavad Gita",
     collection: "Sacred Scriptures",

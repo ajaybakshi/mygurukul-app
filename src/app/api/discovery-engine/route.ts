@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { GoogleAuth } from 'google-auth-library'
 import { createSessionWithFallback, buildSessionPath, generateUserPseudoId } from '@/lib/sessionManager'
 import { writeApiLog, createLogData } from '@/lib/logger'
+import { categoryService } from '@/lib/database/categoryService'
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   
   try {
-    const { question, sessionId } = await request.json()
+    const { question, sessionId, category } = await request.json()
     
     if (!question || typeof question !== 'string') {
       return NextResponse.json(
@@ -113,6 +114,16 @@ export async function POST(request: NextRequest) {
     let queryText = question;
     if (question.length > 5) {
       queryText += ' characters themes places context sections';
+    }
+    
+    // Category-based query enhancement
+    if (process.env.ENABLE_CATEGORY_BOOST === 'true' && category) {
+      const availableTexts = await categoryService.getTextsForCategory(category)
+        .then(texts => texts.filter(t => t.status === 'available').map(t => t.slug));
+      
+      if (availableTexts.length > 0) {
+        queryText += ` boost texts: ${availableTexts.join(' ')}`; // Append only, no overwrite
+      }
     }
     
     const requestBody = {
