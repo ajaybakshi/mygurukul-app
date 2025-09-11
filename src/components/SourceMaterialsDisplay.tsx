@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { categoryService } from '@/lib/database/categoryService';
 import { Accordion, AccordionItem, AccordionButton, AccordionPanel, AccordionIcon, Box, Badge } from '@chakra-ui/react';
 
-const SacredSpaces = () => {
+const SacredSpaces = ({ selectedCategory: propSelectedCategory }: { selectedCategory?: string }) => {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
 
@@ -20,6 +20,13 @@ const SacredSpaces = () => {
     };
     fetchCategories();
   }, []);
+
+  // Handle prop category changes
+  useEffect(() => {
+    if (propSelectedCategory) {
+      handleSelect(propSelectedCategory);
+    }
+  }, [propSelectedCategory]);
 
   const handleSelect = async (catId) => {
     const texts = await categoryService.getTextsForCategory(catId);

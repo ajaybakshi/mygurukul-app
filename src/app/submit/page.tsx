@@ -10,10 +10,17 @@ import {
 } from "@/lib/discoveryEngine";
 import AIResponse from "@/components/AIResponse";
 import SourceMaterialsDisplay from "@/components/SourceMaterialsDisplay";
+import { categoryService } from "@/lib/database/categoryService";
+import { TopicCategory } from "@/types/categories";
+import { Select } from "@chakra-ui/react";
+
+// Initialize categories directly
+const initialCategories = categoryService.getCategories();
 
 export default function SubmitPage() {
   const [question, setQuestion] = useState("");
-  const [category, setCategory] = useState("dharmic");
+  const [category, setCategory] = useState(initialCategories.length > 0 ? initialCategories[0].id : "");
+  const [categories, setCategories] = useState<TopicCategory[]>(initialCategories);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiResponse, setAiResponse] = useState<DiscoveryEngineResponse | null>(
     null
@@ -52,6 +59,8 @@ export default function SubmitPage() {
     setIsClient(true);
   }, []);
 
+  // Categories are now initialized directly above
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!question.trim()) {
@@ -78,10 +87,11 @@ export default function SubmitPage() {
       };
       setMessages((prev) => [...prev, userMessage]);
 
-      console.log("Sending request with sessionId:", sessionId);
+      console.log("Sending request with sessionId:", sessionId, "and category:", category);
       const response = await callDiscoveryEngine(
         question,
-        sessionId || undefined
+        sessionId || undefined,
+        category
       );
       console.log("Received response with sessionId:", response.sessionId);
       setAiResponse(response);
@@ -130,16 +140,9 @@ export default function SubmitPage() {
     setMessages([]); // Clear message history
   };
 
-  // Enhanced Category Dropdown Component
+  // Enhanced Category Dropdown Component with Chakra UI
   const CategoryDropdown = () => {
-    const categories = [
-      { value: "dharmic", label: "🕉️ Dharmic Wisdom & Guidance" },
-      { value: "meditation", label: "🧘 Meditation & Inner Peace" },
-      { value: "dharma", label: "⚖️ Dharma & Ethical Living" },
-      { value: "relationships", label: "💕 Sacred Relationships & Love" },
-      { value: "purpose", label: "🎯 Life Purpose & Karma" },
-      { value: "challenges", label: "🛡️ Overcoming Life Challenges" },
-    ];
+    const selectedCategory = categories.find((cat) => cat.id === category);
 
     return (
       <div className="relative">
@@ -147,7 +150,7 @@ export default function SubmitPage() {
           Category
         </label>
 
-        {/* Enhanced Select with premium styling */}
+        {/* HTML Select with premium styling */}
         <div className="relative">
           <select
             value={category}
@@ -156,43 +159,33 @@ export default function SubmitPage() {
             onBlur={() => setTimeout(() => setIsDropdownOpen(false), 150)}
             className="w-full p-4 sm:p-5 border border-premium rounded-xl bg-premium-card text-spiritual-950 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent text-premium-base touch-manipulation transition-all duration-200 hover:border-premium-hover hover:shadow-md appearance-none cursor-pointer"
           >
+            <option value="">Select a spiritual category...</option>
             {categories.map((cat) => (
               <option
-                key={cat.value}
-                value={cat.value}
+                key={cat.id}
+                value={cat.id}
                 className="py-3 px-4 hover:bg-amber-50 transition-colors duration-200"
               >
-                {cat.label}
+                {cat.name}
               </option>
             ))}
           </select>
-
-          {/* Custom dropdown arrow */}
-          <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-            <div
-              className={`w-6 h-6 text-spiritual-400 transition-transform duration-200 ${
-                isDropdownOpen ? "rotate-180" : ""
-              }`}
-            >
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </div>
-          </div>
         </div>
 
         {/* Selected category indicator */}
-        <div className="mt-3 flex items-center space-x-3">
-          <div className="w-3 h-3 bg-amber-500 rounded-full animate-gentlePulse"></div>
-          <span className="text-premium-sm text-spiritual-600 font-medium">
-            Selected: {categories.find((cat) => cat.value === category)?.label}
-          </span>
-        </div>
+        {selectedCategory && (
+          <div className="mt-3 flex items-center space-x-3">
+            <div className="w-3 h-3 bg-amber-500 rounded-full animate-gentlePulse"></div>
+            <span className="text-premium-sm text-spiritual-600 font-medium">
+              Selected: {selectedCategory.name}
+            </span>
+            {selectedCategory.description && (
+              <span className="text-premium-xs text-spiritual-500">
+                - {selectedCategory.description}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     );
   };
