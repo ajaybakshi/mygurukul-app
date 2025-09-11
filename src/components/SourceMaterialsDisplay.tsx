@@ -121,6 +121,12 @@ const SourceMaterialCard = ({ source, index }: { source: SourceMaterial; index: 
       }
     }
   };
+
+  // Placeholder function for Today's Wisdom button
+  const handleTodaysWisdom = async (sourceName: string) => {
+    console.log(`Fetching wisdom for ${sourceName}`);
+    // We'll implement this fully in the next step
+  };
   
   return (
     <div 
@@ -219,12 +225,21 @@ const SourceMaterialCard = ({ source, index }: { source: SourceMaterial; index: 
             </span>
           </div>
           {isAvailable && (
-            <button 
-              className="button-premium w-full sm:w-auto px-6 py-3 text-white text-premium-sm"
-              aria-label={`View source: ${source.sourceName}`}
-            >
-              View Source
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <button 
+                className="button-premium w-full sm:w-auto px-6 py-3 text-white text-premium-sm"
+                aria-label={`View source: ${source.sourceName}`}
+              >
+                View Source
+              </button>
+              <button 
+                onClick={() => handleTodaysWisdom(source.sourceName)}
+                className="ml-4 bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 w-full sm:w-auto text-premium-sm font-medium transition-colors duration-200"
+                aria-label={`Get today's wisdom from ${source.sourceName}`}
+              >
+                Today's Wisdom
+              </button>
+            </div>
           )}
         </div>
 
