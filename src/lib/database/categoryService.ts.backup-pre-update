@@ -1,4 +1,8 @@
-{
+import { TopicCategory, SacredText, CategoryWithTexts } from '@/types/categories';
+// import { corpusChecker } from '@/lib/services/corpusChecker'; // Temporarily disabled for testing
+
+// Import JSON data as a module
+const categoriesData = {
   "categories": [
     {
       "id": "life-purpose-ethics",
@@ -101,4 +105,78 @@
       ]
     }
   ]
+};
+
+export class CategoryService {
+  private categories: any;
+
+  constructor() {
+    this.categories = categoriesData.categories;
+  }
+
+  getCategories(): TopicCategory[] {
+    return this.categories.map((cat: any) => ({
+      id: cat.id,
+      name: cat.name,
+      slug: cat.slug,
+      description: cat.description,
+      order: cat.order
+    })).sort((a: TopicCategory, b: TopicCategory) => a.order - b.order);
+  }
+
+  getCategoryById(categoryId: string): TopicCategory | null {
+    const category = this.categories.find((cat: any) => cat.id === categoryId);
+    if (!category) return null;
+    
+    return {
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      description: category.description,
+      order: category.order
+    };
+  }
+
+  async getTextsForCategory(categoryId: string): Promise<SacredText[]> {
+    const category = this.categories.find((cat: any) => cat.id === categoryId);
+    if (!category) return [];
+    
+    // Temporarily return static status for testing
+    return category.texts || [];
+    
+    // TODO: Re-enable dynamic status checking once GCS issues are resolved
+    // return Promise.all(category.texts.map(async (text: SacredText) => {
+    //   const dynamicStatus = await corpusChecker.checkCorpusAvailability(text.cloudFolderPath);
+    //   return { ...text, status: dynamicStatus };
+    // })) || [];
+  }
+
+  async getCategoryWithTexts(categoryId: string): Promise<CategoryWithTexts | null> {
+    const category = this.getCategoryById(categoryId);
+    if (!category) return null;
+    
+    const texts = await this.getTextsForCategory(categoryId);
+    
+    return {
+      category,
+      texts
+    };
+  }
+
+  async getAvailableTextsCount(categoryId: string): Promise<number> {
+    const texts = await this.getTextsForCategory(categoryId);
+    return texts.filter(text => text.status === 'available').length;
+  }
+
+  getAllTexts(): SacredText[] {
+    const allTexts: SacredText[] = [];
+    this.categories.forEach((category: any) => {
+      if (category.texts) {
+        allTexts.push(...category.texts);
+      }
+    });
+    return allTexts;
+  }
 }
+
+export const categoryService = new CategoryService();
