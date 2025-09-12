@@ -10,17 +10,23 @@ import {
 } from "@/lib/discoveryEngine";
 import AIResponse from "@/components/AIResponse";
 import SourceMaterialsDisplay from "@/components/SourceMaterialsDisplay";
-import { categoryService } from "@/lib/database/categoryService";
-import { TopicCategory } from "@/types/categories";
+// Removed categoryService import - using hardcoded categories for stability
 import { Select } from "@chakra-ui/react";
 
-// Initialize categories directly
-const initialCategories = categoryService.getCategories();
+// Hardcoded categories for stable dropdown functionality
+const hardcodedCategories = [
+  { id: "life-purpose-ethics", name: "🕊️ Life Purpose & Ethics", description: "Core texts on dharmic living, ethics, and life purpose." },
+  { id: "yoga-meditation", name: "🧘 Yoga & Meditation", description: "Texts on yoga philosophy and meditation practices." },
+  { id: "health-wellbeing", name: "🌿 Health & Well-being", description: "Ayurvedic scriptures and health wisdom." },
+  { id: "relationships-love", name: "❤️ Relationships & Love", description: "Sacred texts on relationships and love." },
+  { id: "arts-aesthetics", name: "🎨 Arts & Aesthetics", description: "Texts on arts, drama, and aesthetic principles." },
+  { id: "wisdom-knowledge", name: "📜 Wisdom & Knowledge", description: "Philosophical texts and knowledge systems." },
+  { id: "prosperity-success", name: "💎 Prosperity & Dharmic Success", description: "Texts on prosperity and dharmic success." }
+];
 
 export default function SubmitPage() {
   const [question, setQuestion] = useState("");
-  const [category, setCategory] = useState(initialCategories.length > 0 ? initialCategories[0].id : "");
-  const [categories, setCategories] = useState<TopicCategory[]>(initialCategories);
+  const [category, setCategory] = useState(hardcodedCategories[0].id); // Set default to first category
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiResponse, setAiResponse] = useState<DiscoveryEngineResponse | null>(
     null
@@ -59,7 +65,8 @@ export default function SubmitPage() {
     setIsClient(true);
   }, []);
 
-  // Categories are now initialized directly above
+  // Categories are now hardcoded - no need for dynamic loading
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,9 +147,9 @@ export default function SubmitPage() {
     setMessages([]); // Clear message history
   };
 
-  // Enhanced Category Dropdown Component with Chakra UI
+  // Enhanced Category Dropdown Component with hardcoded categories
   const CategoryDropdown = () => {
-    const selectedCategory = categories.find((cat) => cat.id === category);
+    const selectedCategory = hardcodedCategories.find((cat) => cat.id === category);
 
     return (
       <div className="relative">
@@ -159,8 +166,7 @@ export default function SubmitPage() {
             onBlur={() => setTimeout(() => setIsDropdownOpen(false), 150)}
             className="w-full p-4 sm:p-5 border border-premium rounded-xl bg-premium-card text-spiritual-950 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent text-premium-base touch-manipulation transition-all duration-200 hover:border-premium-hover hover:shadow-md appearance-none cursor-pointer"
           >
-            <option value="">Select a spiritual category...</option>
-            {categories.map((cat) => (
+            {hardcodedCategories.map((cat) => (
               <option
                 key={cat.id}
                 value={cat.id}
