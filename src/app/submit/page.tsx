@@ -10,42 +10,17 @@ import {
 } from "@/lib/discoveryEngine";
 import AIResponse from "@/components/AIResponse";
 import SourceMaterialsDisplay from "@/components/SourceMaterialsDisplay";
-import TraditionalWisdomDisplay from "@/components/TraditionalWisdomDisplay";
-// Removed categoryService import - using hardcoded categories for stability
+import { categoryService } from "@/lib/database/categoryService";
+import { TopicCategory } from "@/types/categories";
 import { Select } from "@chakra-ui/react";
 
-// Hardcoded categories for stable dropdown functionality
-const hardcodedCategories = [
-  { id: "life-purpose-ethics", name: "🕊️ Life Purpose & Ethics", description: "Core texts on dharmic living, ethics, and life purpose." },
-  { id: "yoga-meditation", name: "🧘 Yoga & Meditation", description: "Texts on yoga philosophy and meditation practices." },
-  { id: "health-wellbeing", name: "🌿 Health & Well-being", description: "Ayurvedic scriptures and health wisdom." },
-  { id: "relationships-love", name: "❤️ Relationships & Love", description: "Sacred texts on relationships and love." },
-  { id: "arts-aesthetics", name: "🎨 Arts & Aesthetics", description: "Texts on arts, drama, and aesthetic principles." },
-  { id: "wisdom-knowledge", name: "📜 Wisdom & Knowledge", description: "Philosophical texts and knowledge systems." },
-  { id: "prosperity-success", name: "💎 Prosperity & Dharmic Success", description: "Texts on prosperity and dharmic success." }
-];
-
-// Interface for Today's Wisdom data
-interface TodaysWisdomData {
-  rawText: string;
-  rawTextAnnotation: {
-    chapter: string;
-    section: string;
-    source: string;
-    characters?: string;
-    location?: string;
-    theme?: string;
-  };
-  wisdom: string;
-  context: string;
-  type: 'story' | 'verse' | 'teaching';
-  sourceName: string;
-  encouragement: string;
-}
+// Initialize categories directly
+const initialCategories = categoryService.getCategories();
 
 export default function SubmitPage() {
   const [question, setQuestion] = useState("");
-  const [category, setCategory] = useState(hardcodedCategories[0].id); // Set default to first category
+  const [category, setCategory] = useState(initialCategories.length > 0 ? initialCategories[0].id : "");
+  const [categories, setCategories] = useState<TopicCategory[]>(initialCategories);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiResponse, setAiResponse] = useState<DiscoveryEngineResponse | null>(
     null
@@ -56,11 +31,6 @@ export default function SubmitPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showValidationError, setShowValidationError] = useState(false);
   const [isClient, setIsClient] = useState(false);
-
-  // Today's Wisdom state
-  const [todaysWisdom, setTodaysWisdom] = useState<TodaysWisdomData | null>(null);
-  const [isLoadingWisdom, setIsLoadingWisdom] = useState(false);
-  const [wisdomError, setWisdomError] = useState<string | null>(null);
 
   // Message history state
   const [messages, setMessages] = useState<
@@ -89,47 +59,7 @@ export default function SubmitPage() {
     setIsClient(true);
   }, []);
 
-  // Categories are now hardcoded - no need for dynamic loading
-
-  // Function to fetch Today's Wisdom
-  const fetchTodaysWisdom = async () => {
-    setIsLoadingWisdom(true);
-    setWisdomError(null);
-    setTodaysWisdom(null);
-
-    try {
-      const response = await fetch('/api/todays-wisdom', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sourceName: 'Ramayana'
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.todaysWisdom) {
-        setTodaysWisdom(data.todaysWisdom);
-      } else {
-        setWisdomError(data.error || 'Failed to fetch today\'s wisdom');
-      }
-    } catch (error) {
-      setWisdomError('Network error occurred while fetching wisdom');
-      console.error('Error fetching today\'s wisdom:', error);
-    } finally {
-      setIsLoadingWisdom(false);
-    }
-  };
-
-  // Function to check if current category has available texts
-  const hasAvailableTexts = (categoryId: string): boolean => {
-    // For now, we'll show the button for categories that contain Ramayana
-    // In a full implementation, this would check the categoryService for available texts
-    const categoriesWithAvailableTexts = ['life-purpose-ethics', 'relationships-love'];
-    return categoriesWithAvailableTexts.includes(categoryId);
-  };
+  // Categories are now initialized directly above
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,9 +140,9 @@ export default function SubmitPage() {
     setMessages([]); // Clear message history
   };
 
-  // Enhanced Category Dropdown Component with hardcoded categories
+  // Enhanced Category Dropdown Component with Chakra UI
   const CategoryDropdown = () => {
-    const selectedCategory = hardcodedCategories.find((cat) => cat.id === category);
+    const selectedCategory = categories.find((cat) => cat.id === category);
 
     return (
       <div className="relative">
@@ -229,7 +159,8 @@ export default function SubmitPage() {
             onBlur={() => setTimeout(() => setIsDropdownOpen(false), 150)}
             className="w-full p-4 sm:p-5 border border-premium rounded-xl bg-premium-card text-spiritual-950 focus:outline-none focus:ring-2 focus:ring-spiritual-500 focus:border-transparent text-premium-base touch-manipulation transition-all duration-200 hover:border-premium-hover hover:shadow-md appearance-none cursor-pointer"
           >
-            {hardcodedCategories.map((cat) => (
+            <option value="">Select a spiritual category...</option>
+            {categories.map((cat) => (
               <option
                 key={cat.id}
                 value={cat.id}
@@ -253,32 +184,6 @@ export default function SubmitPage() {
                 - {selectedCategory.description}
               </span>
             )}
-          </div>
-        )}
-
-        {/* Today's Wisdom Button - Only show for categories with available texts */}
-        {hasAvailableTexts(category) && (
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={fetchTodaysWisdom}
-              disabled={isLoadingWisdom}
-              className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 disabled:from-yellow-300 disabled:to-yellow-400 text-white py-3 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] touch-manipulation text-premium-base font-semibold border-2 border-yellow-300 shadow-md focus:outline-none focus:ring-4 focus:ring-yellow-300 focus:ring-opacity-50"
-            >
-              <div className="flex items-center justify-center space-x-2">
-                {isLoadingWisdom ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Loading Wisdom...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-lg">🌟</span>
-                    <span>Today's Wisdom</span>
-                  </>
-                )}
-              </div>
-            </button>
           </div>
         )}
       </div>
@@ -393,29 +298,6 @@ export default function SubmitPage() {
               </div>
             )}
           </form>
-
-          {/* Today's Wisdom Display */}
-          {wisdomError && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
-              <div className="flex items-center mb-2">
-                <span className="text-red-600 text-lg mr-2">⚠️</span>
-                <h3 className="text-red-800 font-semibold">Error Loading Wisdom</h3>
-              </div>
-              <p className="text-red-700 text-sm">{wisdomError}</p>
-              <button
-                onClick={fetchTodaysWisdom}
-                className="mt-3 bg-red-100 hover:bg-red-200 text-red-800 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                Try Again
-              </button>
-            </div>
-          )}
-
-          {todaysWisdom && (
-            <div className="mb-6">
-              <TraditionalWisdomDisplay wisdomData={todaysWisdom} isLoading={isLoadingWisdom} />
-            </div>
-          )}
 
           {/* Conversation History - Always visible */}
           <div className="bg-premium-card border border-premium rounded-xl p-6 premium-shadow">
