@@ -10,12 +10,45 @@ import {
 } from "@/lib/discoveryEngine";
 import AIResponse from "@/components/AIResponse";
 import SourceMaterialsDisplay from "@/components/SourceMaterialsDisplay";
+import TraditionalWisdomDisplay from "@/components/TraditionalWisdomDisplay";
 import { categoryService } from "@/lib/database/categoryService";
 import { TopicCategory } from "@/types/categories";
 import { Select } from "@chakra-ui/react";
 
 // Initialize categories directly
 const initialCategories = categoryService.getCategories();
+
+// Mapping function to translate categoryService IDs to categoryConfig IDs
+const mapCategoryServiceToConfig = (categoryServiceId: string): string => {
+  const mapping: { [key: string]: string } = {
+    'life-purpose-ethics': 'purpose',
+    'yoga-meditation': 'meditation', 
+    'health-wellbeing': 'meditation',
+    'relationships-love': 'relationships',
+    'arts-aesthetics': 'dharmic',
+    'wisdom-knowledge': 'dharmic',
+    'prosperity-dharmic-success': 'purpose'
+  };
+  return mapping[categoryServiceId] || 'dharmic';
+};
+
+// Interface for Today's Wisdom data
+interface TodaysWisdomData {
+  rawText: string;
+  rawTextAnnotation: {
+    chapter: string;
+    section: string;
+    source: string;
+    characters?: string;
+    location?: string;
+    theme?: string;
+  };
+  wisdom: string;
+  context: string;
+  type: 'story' | 'verse' | 'teaching';
+  sourceName: string;
+  encouragement: string;
+}
 
 export default function SubmitPage() {
   const [question, setQuestion] = useState("");
@@ -31,6 +64,11 @@ export default function SubmitPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showValidationError, setShowValidationError] = useState(false);
   const [isClient, setIsClient] = useState(false);
+
+  // Today's Wisdom state
+  const [todaysWisdom, setTodaysWisdom] = useState<TodaysWisdomData | null>(null);
+  const [isLoadingWisdom, setIsLoadingWisdom] = useState(false);
+  const [wisdomError, setWisdomError] = useState<string | null>(null);
 
   // Message history state
   const [messages, setMessages] = useState<
@@ -140,6 +178,46 @@ export default function SubmitPage() {
     setMessages([]); // Clear message history
   };
 
+  // Function to fetch Today's Wisdom
+  const fetchTodaysWisdom = async () => {
+    setIsLoadingWisdom(true);
+    setWisdomError(null);
+    setTodaysWisdom(null);
+
+    try {
+      const response = await fetch('/api/todays-wisdom', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sourceName: 'Ramayana'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.todaysWisdom) {
+        setTodaysWisdom(data.todaysWisdom);
+      } else {
+        setWisdomError(data.error || 'Failed to fetch today\'s wisdom');
+      }
+    } catch (error) {
+      setWisdomError('Network error occurred while fetching wisdom');
+      console.error('Error fetching today\'s wisdom:', error);
+    } finally {
+      setIsLoadingWisdom(false);
+    }
+  };
+
+  // Function to check if current category has available texts
+  const hasAvailableTexts = (categoryId: string): boolean => {
+    // For now, we'll show the button for categories that contain Ramayana
+    // In a full implementation, this would check the categoryService for available texts
+    const categoriesWithAvailableTexts = ['life-purpose-ethics', 'relationships-love'];
+    return categoriesWithAvailableTexts.includes(categoryId);
+  };
+
   // Enhanced Category Dropdown Component with Chakra UI
   const CategoryDropdown = () => {
     const selectedCategory = categories.find((cat) => cat.id === category);
@@ -184,6 +262,32 @@ export default function SubmitPage() {
                 - {selectedCategory.description}
               </span>
             )}
+          </div>
+        )}
+
+        {/* Today's Wisdom Button */}
+        {hasAvailableTexts(category) && (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={fetchTodaysWisdom}
+              disabled={isLoadingWisdom}
+              className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 disabled:from-yellow-300 disabled:to-yellow-400 text-white py-3 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] touch-manipulation text-premium-base font-semibold border-2 border-yellow-300 shadow-md focus:outline-none focus:ring-4 focus:ring-yellow-300 focus:ring-opacity-50"
+            >
+              <div className="flex items-center justify-center space-x-2">
+                {isLoadingWisdom ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Loading Wisdom...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-lg">🌟</span>
+                    <span>Today's Wisdom</span>
+                  </>
+                )}
+              </div>
+            </button>
           </div>
         )}
       </div>
@@ -392,9 +496,33 @@ export default function SubmitPage() {
           </div>
         </div>
 
+        {/* Today's Wisdom Error Handling */}
+        {wisdomError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
+            <div className="flex items-center mb-2">
+              <span className="text-red-600 text-lg mr-2">⚠️</span>
+              <h3 className="text-red-800 font-semibold">Error Loading Wisdom</h3>
+            </div>
+            <p className="text-red-700 text-sm">{wisdomError}</p>
+            <button
+              onClick={fetchTodaysWisdom}
+              className="mt-3 bg-red-100 hover:bg-red-200 text-red-800 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {/* Today's Wisdom Display */}
+        {todaysWisdom && (
+          <div className="mb-6">
+            <TraditionalWisdomDisplay wisdomData={todaysWisdom} isLoading={isLoadingWisdom} />
+          </div>
+        )}
+
         {/* Sacred Sources Section */}
         <div className="mt-12 transition-all duration-300 ease-in-out max-h-96 overflow-y-auto">
-          <SourceMaterialsDisplay selectedCategory={category} />
+          <SourceMaterialsDisplay selectedCategory={mapCategoryServiceToConfig(category)} />
         </div>
 
         {/* AI Response - Spiritual Guidance (Last Section) */}

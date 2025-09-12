@@ -257,6 +257,8 @@ const SourceMaterialsDisplay: React.FC<SourceMaterialsDisplayProps> = ({ selecte
     const fetchSourceMaterials = async () => {
       if (!selectedCategory) return;
 
+      console.log('SourceMaterialsDisplay: selectedCategory =', selectedCategory);
+
       // Start transition if category changed
       if (prevCategory !== selectedCategory) {
         setIsTransitioning(true);
@@ -272,8 +274,10 @@ const SourceMaterialsDisplay: React.FC<SourceMaterialsDisplayProps> = ({ selecte
       try {
         // Get backend files for the selected category
         const backendFiles = getBackendFilesForCategory(selectedCategory);
+        console.log('SourceMaterialsDisplay: backendFiles =', backendFiles);
         
         if (backendFiles.length === 0) {
+          console.log('SourceMaterialsDisplay: No backend files found');
           setSources([]);
           setStats({ totalFound: 0, totalRequested: 0 });
           return;
