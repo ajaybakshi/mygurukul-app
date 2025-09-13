@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Storage } from '@google-cloud/storage';
+import { crossCorpusWisdomService } from '../../../lib/services/crossCorpusWisdomService';
 
 interface TodaysWisdom {
   // Raw sacred text (what seeker reads first)
@@ -499,17 +500,45 @@ function extractChapterInfo(fileName: string, metadata: string): { chapter: stri
 export async function POST(request: NextRequest) {
   let sourceName: string = '';
   
+  // Enhanced source selection using existing infrastructure
+  let selectionMethod: 'user-specified' | 'random' | 'cross-corpus' = 'user-specified';
+  let selectedSourceInfo: any = null;
+
   try {
     const body = await request.json();
-    sourceName = body.sourceName || '';
+    
+    if (body.sourceName && body.sourceName.trim()) {
+      // Traditional single-source selection (backward compatibility)
+      sourceName = body.sourceName.trim();
+      selectionMethod = 'user-specified';
+      console.log(`Traditional source selection: ${sourceName}`);
+    } else {
+      // New cross-corpus intelligent selection
+      console.log('Using cross-corpus selection...');
+      selectedSourceInfo = await crossCorpusWisdomService.selectWisdomSource({
+        userPreference: body.sourcePreference || 'random',
+        excludeRecent: body.excludeRecent || [],
+        diversityMode: body.diversityMode || 'balanced'
+      });
+      
+      sourceName = selectedSourceInfo.folderName;
+      selectionMethod = 'cross-corpus';
+      console.log(`Cross-corpus selection: ${selectedSourceInfo.displayName} from ${selectedSourceInfo.category} (${selectedSourceInfo.selectionReason})`);
+    }
     
     if (!sourceName) {
-      return NextResponse.json(
-        { error: 'Source name is required' },
-        { status: 400 }
-      );
+      console.log('No source selected, using fallback');
+      sourceName = 'Ramayana';
+      selectionMethod = 'user-specified';
     }
+    
+  } catch (requestError) {
+    console.error('Error processing wisdom request:', requestError);
+    sourceName = 'Ramayana';
+    selectionMethod = 'user-specified';
+  }
 
+  try {
     console.log(`Today's Wisdom request for folder: ${sourceName}`);
     
     const files = await getAllFilesFromFolder(sourceName);
@@ -520,9 +549,23 @@ export async function POST(request: NextRequest) {
     
     const todaysWisdom = await selectTodaysWisdomFromFiles(files, sourceName);
     
+    // Get available sources for frontend dropdown
+    const availableSources = await crossCorpusWisdomService.getAllAvailableSources();
+
     return NextResponse.json({
       success: true,
-      todaysWisdom: todaysWisdom
+      todaysWisdom: todaysWisdom,
+      selectedSource: sourceName,
+      selectionMethod: selectionMethod,
+      selectedSourceInfo: selectedSourceInfo,
+      availableSources: availableSources.map(source => ({
+        folderName: source,
+        displayName: source.replace(/([A-Z])/g, ' $1').trim().replace(/^\w/, c => c.toUpperCase())
+      })),
+      totalAvailableSources: availableSources.length,
+      message: selectionMethod === 'cross-corpus' ? 
+        `Wisdom selected from ${selectedSourceInfo?.displayName || sourceName} using intelligent cross-corpus selection` :
+        `Wisdom from ${sourceName} as specifically requested`
     });
 
   } catch (error) {

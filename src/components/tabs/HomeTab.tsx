@@ -98,16 +98,34 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          sourceName: 'Ramayana'
-        }),
+        body: JSON.stringify({}),
       });
 
       const data = await response.json();
 
       if (data.success && data.todaysWisdom) {
-        setTodaysWisdom(data.todaysWisdom);
-        setCachedWisdom(data.todaysWisdom);
+        // Enhanced wisdom data with source information
+        const enhancedWisdom = {
+          ...data.todaysWisdom,
+          selectedSource: data.selectedSource,
+          selectionMethod: data.selectionMethod,
+          selectedSourceInfo: data.selectedSourceInfo,
+          message: data.message
+        };
+        setTodaysWisdom(enhancedWisdom);
+        setCachedWisdom(enhancedWisdom);
+      } else if (data.fallbackWisdom) {
+        // Use fallback wisdom when API provides it (e.g., no files found but graceful fallback)
+        console.log('Using fallback wisdom:', data.fallbackWisdom.sourceName);
+        const fallbackWisdom = {
+          ...data.fallbackWisdom,
+          selectedSource: data.selectedSource || data.fallbackWisdom.sourceName,
+          selectionMethod: data.selectionMethod || 'fallback',
+          selectedSourceInfo: data.selectedSourceInfo || { displayName: data.fallbackWisdom.sourceName, category: 'Sacred Texts' },
+          message: data.message || 'Wisdom provided via intelligent fallback selection'
+        };
+        setTodaysWisdom(fallbackWisdom);
+        setCachedWisdom(fallbackWisdom);
       } else {
         setWisdomError(data.error || 'Failed to fetch today\'s wisdom');
       }
@@ -321,11 +339,23 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
                   {/* Source Header */}
                   <div className="text-center mb-6">
                     <h2 className="text-2xl font-bold text-amber-800 mb-2">
-                      {todaysWisdom.sourceName} Daily Wisdom
+                      {todaysWisdom.selectedSourceInfo?.displayName || todaysWisdom.sourceName} Daily Wisdom
                     </h2>
-                    <div className="text-amber-600 text-sm font-medium">
+                    <div className="text-amber-600 text-sm font-medium mb-2">
                       📜 Original Scripture
                     </div>
+                    {/* Cross-Corpus Selection Indicator */}
+                    {todaysWisdom.selectionMethod === 'cross-corpus' && (
+                      <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium">
+                        <span>🌟</span>
+                        <span>Intelligently Selected from {todaysWisdom.selectedSourceInfo?.category || 'Sacred Texts'}</span>
+                      </div>
+                    )}
+                    {todaysWisdom.message && (
+                      <div className="text-amber-600 text-xs mt-2 italic">
+                        {todaysWisdom.message}
+                      </div>
+                    )}
                   </div>
                   
                   {/* Chapter and Section Annotation */}
