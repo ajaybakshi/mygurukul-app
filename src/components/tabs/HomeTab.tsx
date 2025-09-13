@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { RefreshCw, MessageSquare } from 'lucide-react';
 import { useTabContext } from '@/contexts/TabContext';
 
@@ -39,6 +39,11 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
     setHomeTabCard: setActiveTabCard,
     switchToAskWithWisdom
   } = useTabContext();
+
+  // User source selection state
+  const [selectedSource, setSelectedSource] = useState<string>('random');
+  const [availableSources, setAvailableSources] = useState<Array<{folderName: string, displayName: string}>>([]);
+  const [sourcesLoading, setSourcesLoading] = useState<boolean>(false);
 
   // Cache management functions
   const getCacheKey = () => `mygurukul_wisdom_${new Date().toDateString()}`;
@@ -93,12 +98,17 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
     }
 
     try {
+      // Enhanced request body based on user source selection
+      const requestBody = selectedSource === 'random' 
+        ? {} // Empty body triggers cross-corpus random selection (preserves current behavior)
+        : { sourcePreference: selectedSource }; // Targeted selection for specific source
+
       const response = await fetch('/api/todays-wisdom', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
@@ -137,6 +147,31 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
     }
   };
 
+  const loadAvailableSources = async () => {
+    try {
+      setSourcesLoading(true);
+      // Quick API call to get available sources from our cross-corpus service
+      const response = await fetch('/api/todays-wisdom', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}), // Empty body triggers cross-corpus and returns availableSources
+      });
+      
+      const data = await response.json();
+      if (data.availableSources && Array.isArray(data.availableSources)) {
+        setAvailableSources(data.availableSources);
+        console.log('Loaded available sources for dropdown:', data.availableSources);
+      }
+    } catch (error) {
+      console.log('Could not load available sources, using fallback');
+      setAvailableSources([{folderName: 'ramayana', displayName: 'Ramayana'}]);
+    } finally {
+      setSourcesLoading(false);
+    }
+  };
+
   // Auto-load wisdom on mount with caching
   useEffect(() => {
     // Only fetch if we don't already have wisdom loaded
@@ -152,6 +187,10 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
       }
     }
   }, []); // Empty dependency array for initial load only
+
+  useEffect(() => {
+    loadAvailableSources();
+  }, []);
 
   // Switch to Ask tab with today's wisdom as context
   const handleContinueToChat = () => {
@@ -254,6 +293,42 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
                 )}
               </div>
             </button>
+          </div>
+          
+          {/* User Source Selection Dropdown - Progressive Disclosure */}
+          <div className="mt-6 mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2 text-center">
+              📜 Choose Your Source (Optional)
+            </label>
+            <div className="relative max-w-md mx-auto">
+              <select 
+                value={selectedSource}
+                onChange={(e) => setSelectedSource(e.target.value)}
+                className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-gray-700 text-center appearance-none cursor-pointer hover:border-amber-400 transition-colors shadow-sm"
+                disabled={sourcesLoading}
+              >
+                <option value="random">✨ Surprise Me (Random Wisdom)</option>
+                {availableSources.map(source => (
+                  <option key={source.folderName} value={source.folderName}>
+                    📖 {source.displayName}
+                  </option>
+                ))}
+              </select>
+              {/* Custom dropdown arrow */}
+              <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+            
+            {/* Helpful hint text */}
+            <div className="text-xs text-gray-500 text-center mt-2">
+              {selectedSource === 'random' 
+                ? '🎲 Random selection from all available sacred texts'
+                : `📚 Wisdom from ${availableSources.find(s => s.folderName === selectedSource)?.displayName || selectedSource}`
+              }
+            </div>
           </div>
           
           {/* Get New Wisdom Button - Only show if wisdom exists */}
