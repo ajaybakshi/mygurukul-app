@@ -142,10 +142,14 @@ const getInitialState = (): TabState => ({
 // Provider component
 interface TabProviderProps {
   children: ReactNode;
+  initialTab?: string;
 }
 
-export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
-  const [state, setState] = useState<TabState>(getInitialState);
+export const TabProvider: React.FC<TabProviderProps> = ({ children, initialTab = 'ask' }) => {
+  const [state, setState] = useState<TabState>(() => ({
+    ...getInitialState(),
+    activeTab: initialTab
+  }));
 
   // Persist session state to localStorage
   useEffect(() => {
