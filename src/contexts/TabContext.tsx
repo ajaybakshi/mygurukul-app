@@ -4,34 +4,16 @@ import React, { createContext, useContext, useState, useCallback, ReactNode, use
 import { DiscoveryEngineResponse } from '@/lib/discoveryEngine';
 
 // Types for tab-level state management
-interface EnhancedRawTextAnnotation {
-  // Primary Information
-  textName: string;
-  tradition: string;
-  chapter: string;
-  section: string;
-  
-  // Context Information  
-  spiritualTheme: string;
-  characters?: string[];
-  location?: string;
-  
-  // Cultural Context
-  historicalPeriod?: string;
-  literaryGenre: string;
-  
-  // Reference Information (for scholars)
-  technicalReference?: string;
-  estimatedAge?: string;
-  
-  // Legacy fields for backward compatibility
-  theme?: string;
-  source?: string;
-}
-
 interface TodaysWisdomData {
   rawText: string;
-  rawTextAnnotation: EnhancedRawTextAnnotation;
+  rawTextAnnotation: {
+    chapter: string;
+    section: string;
+    source: string;
+    characters?: string;
+    location?: string;
+    theme?: string;
+  };
   wisdom: string;
   context: string;
   type: 'story' | 'verse' | 'teaching';
