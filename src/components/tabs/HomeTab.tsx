@@ -4,6 +4,26 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCw, MessageSquare } from 'lucide-react';
 import { useTabContext } from '@/contexts/TabContext';
 
+// Client-side only date component to avoid hydration mismatches
+const ClientDate: React.FC = () => {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  if (!mounted) {
+    return <span>today</span>; // Placeholder during SSR
+  }
+  
+  return <span>{new Date().toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  })}</span>;
+};
+
 // Interface for Today's Wisdom data (extracted from submit page)
 interface TodaysWisdomData {
   rawText: string;
@@ -352,12 +372,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
           {todaysWisdom && !isLoadingWisdom && (
             <div className="text-center">
               <p className="text-amber-600 text-sm">
-                📅 Wisdom cached for {new Date().toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
+                📅 Wisdom cached for <ClientDate />
               </p>
             </div>
           )}

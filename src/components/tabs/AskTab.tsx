@@ -12,6 +12,29 @@ import { categoryService } from "@/lib/database/categoryService";
 import { TopicCategory } from "@/types/categories";
 import { useTabContext } from '@/contexts/TabContext';
 
+// Client-side only timestamp component to avoid hydration mismatches
+const ClientTimestamp: React.FC<{ timestamp: Date | string }> = ({ timestamp }) => {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <span>--:--</span>;
+  }
+
+  // Safe date conversion - handles both Date objects and strings
+  const dateObj = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  
+  // Check if date is valid
+  if (isNaN(dateObj.getTime())) {
+    return <span>--:--</span>;
+  }
+
+  return <span>{dateObj.toLocaleTimeString()}</span>;
+};
+
 // Initialize categories directly
 const initialCategories = categoryService.getCategories();
 
@@ -401,7 +424,7 @@ const AskTab: React.FC<AskTabProps> = ({ className = '' }) => {
                           : "text-blue-500 text-left"
                       }`}
                     >
-                      {message.timestamp.toLocaleTimeString()}
+                      <ClientTimestamp timestamp={message.timestamp} />
                     </div>
                   </div>
                 </div>
