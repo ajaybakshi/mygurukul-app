@@ -7,23 +7,52 @@ interface EnhancedRawTextAnnotation {
   tradition: string;
   chapter: string;
   section: string;
-  
-  // Context Information  
+
+  // Context Information
   spiritualTheme: string;
   characters?: string[];
   location?: string;
-  
+
   // Cultural Context
   historicalPeriod?: string;
   literaryGenre: string;
-  
+
   // Reference Information (for scholars)
   technicalReference?: string;
   estimatedAge?: string;
-  
+
   // Legacy fields for backward compatibility
   theme?: string;
   source?: string;
+
+  // Gretil Metadata Integration
+  gretilMetadata?: {
+    title: string;
+    dataEntry?: string;
+    contribution?: string;
+    dateVersion?: string;
+    source?: string;
+    publisher?: string;
+    licence?: string;
+    referenceStructure?: string;
+    notes?: string;
+    revisions?: string;
+    originalUrl?: string;
+    chapterInfo?: {
+      book?: number;
+      chapter: number;
+      section?: number;
+    };
+    verseNumber?: {
+      verse: number;
+      subVerse?: string;
+      fullReference: string;
+    };
+    citationFormat?: string;
+    textType?: string;
+    timePeriod?: string;
+    hasCommentary?: boolean;
+  };
 }
 
 interface WisdomData {
@@ -138,6 +167,61 @@ export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false
                 {wisdomData.rawTextAnnotation.technicalReference}
               </div>
             </details>
+          )}
+
+          {/* Gretil Metadata Display */}
+          {wisdomData.rawTextAnnotation.gretilMetadata && (
+            <div className="mt-4 p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded border border-amber-200">
+              <details className="cursor-pointer">
+                <summary className="text-sm font-medium text-amber-800 hover:text-amber-900 flex items-center">
+                  📜 Source Metadata
+                  {wisdomData.rawTextAnnotation.gretilMetadata.verseNumber && (
+                    <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+                      Verse {wisdomData.rawTextAnnotation.gretilMetadata.verseNumber.fullReference}
+                    </span>
+                  )}
+                </summary>
+                <div className="mt-3 space-y-2 text-xs text-amber-700">
+                  {wisdomData.rawTextAnnotation.gretilMetadata.title && (
+                    <div><strong>Title:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.title}</div>
+                  )}
+                  {wisdomData.rawTextAnnotation.gretilMetadata.textType && (
+                    <div><strong>Text Type:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.textType}</div>
+                  )}
+                  {wisdomData.rawTextAnnotation.gretilMetadata.timePeriod && (
+                    <div><strong>Time Period:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.timePeriod}</div>
+                  )}
+                  {wisdomData.rawTextAnnotation.gretilMetadata.contribution && (
+                    <div><strong>Contributor:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.contribution}</div>
+                  )}
+                  {wisdomData.rawTextAnnotation.gretilMetadata.source && (
+                    <div><strong>Source:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.source}</div>
+                  )}
+                  {wisdomData.rawTextAnnotation.gretilMetadata.citationFormat && (
+                    <div><strong>Citation Format:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.citationFormat}</div>
+                  )}
+                  {wisdomData.rawTextAnnotation.gretilMetadata.hasCommentary && (
+                    <div><strong>Note:</strong> Includes scholarly commentary</div>
+                  )}
+                  {wisdomData.rawTextAnnotation.gretilMetadata.licence && (
+                    <div><strong>License:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.licence}</div>
+                  )}
+                  {wisdomData.rawTextAnnotation.gretilMetadata.referenceStructure && (
+                    <div><strong>Reference Structure:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.referenceStructure}</div>
+                  )}
+                  {wisdomData.rawTextAnnotation.gretilMetadata.chapterInfo && (
+                    <div>
+                      <strong>Location:</strong> Chapter {wisdomData.rawTextAnnotation.gretilMetadata.chapterInfo.chapter}
+                      {wisdomData.rawTextAnnotation.gretilMetadata.chapterInfo.book && ` (Book ${wisdomData.rawTextAnnotation.gretilMetadata.chapterInfo.book})`}
+                      {wisdomData.rawTextAnnotation.gretilMetadata.chapterInfo.section && `, Section ${wisdomData.rawTextAnnotation.gretilMetadata.chapterInfo.section}`}
+                    </div>
+                  )}
+                  {wisdomData.rawTextAnnotation.gretilMetadata.dateVersion && (
+                    <div><strong>Version:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.dateVersion}</div>
+                  )}
+                </div>
+              </details>
+            </div>
           )}
         </div>
 

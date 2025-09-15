@@ -374,26 +374,136 @@ Make it personal, relatable, and deeply inspiring - not academic or distant.`;
   }
 }
 
+// Parse chapter and verse information from reference string for all scripture types
+function parseReferenceFromString(reference: string): { chapter: number; verse: number; subVerse?: string } | null {
+  if (!reference || typeof reference !== 'string') return null;
+
+  // Extract the actual reference part (remove text name prefix)
+  let refPart = reference;
+
+  // Handle formats like "Text Name - Reference"
+  const dashIndex = reference.lastIndexOf(' - ');
+  if (dashIndex !== -1) {
+    refPart = reference.substring(dashIndex + 3);
+  }
+
+  // Patterns for different scripture reference formats
+  const patterns = [
+    // Linga Purana: LiP_1,85.207
+    { regex: /LiP_(\d+),(\d+)\.(\d+)/, groups: ['chapter', 'verse', 'subVerse'] },
+    // Agni Purana: ap_1.001ab
+    { regex: /ap_(\d+)\.(\d+)([a-z]*)/, groups: ['chapter', 'verse', 'subVerse'] },
+    // Bhagavad Gita: bhg 2.15
+    { regex: /bhg\s+(\d+)\.(\d+)/, groups: ['chapter', 'verse'] },
+    // Chandogya Upanishad: chup_1,1.1
+    { regex: /chup_(\d+),(\d+)\.(\d+)/, groups: ['chapter', 'section', 'verse'] },
+    // Ramayana: Ram_2,1.1
+    { regex: /Ram_(\d+),(\d+)\.(\d+)/, groups: ['book', 'chapter', 'verse'] },
+    // Rig Veda Khila: RvKh_1,1.1
+    { regex: /RvKh_(\d+),(\d+)\.(\d+)/, groups: ['book', 'section', 'verse'] },
+    // Generic pattern for other formats
+    { regex: /(\w+)_(\d+),?(\d*)\.?(\d*)([a-z]*)/, groups: ['text', 'chapter', 'section', 'verse', 'subVerse'] }
+  ];
+
+  for (const pattern of patterns) {
+    try {
+      const match = refPart.match(pattern.regex);
+      if (match) {
+        const result: any = {};
+
+        // Map captured groups to result
+        pattern.groups.forEach((groupName, index) => {
+          const value = match[index + 1];
+          if (value && value !== '' && !isNaN(Number(value))) {
+            result[groupName] = parseInt(value);
+          }
+        });
+
+        // Ensure we have at least chapter and verse
+        if (result.chapter !== undefined && result.verse !== undefined) {
+          return {
+            chapter: result.chapter,
+            verse: result.verse,
+            subVerse: result.subVerse || undefined
+          };
+        } else if (result.book !== undefined && result.verse !== undefined) {
+          // Handle book-based references (like Ramayana)
+          return {
+            chapter: result.book,
+            verse: result.verse,
+            subVerse: result.subVerse || undefined
+          };
+        }
+      }
+    } catch (error) {
+      // Continue to next pattern
+    }
+  }
+
+  return null;
+}
+
+// Build contextual information from Gretil metadata
+function buildContextInfo(metadata: any): string {
+  const contextParts: string[] = [];
+
+  if (metadata.timePeriod) {
+    contextParts.push(`TIME PERIOD: ${metadata.timePeriod}`);
+  }
+
+  if (metadata.chapterInfo) {
+    const chapter = metadata.chapterInfo;
+    const chapterStr = chapter.book ? `Book ${chapter.book}, Chapter ${chapter.chapter}` : `Chapter ${chapter.chapter}`;
+    if (chapter.section) {
+      contextParts.push(`LOCATION: ${chapterStr}, Section ${chapter.section}`);
+    } else {
+      contextParts.push(`LOCATION: ${chapterStr}`);
+    }
+  }
+
+  if (metadata.citationFormat && metadata.citationFormat !== 'unknown') {
+    contextParts.push(`CITATION FORMAT: ${metadata.citationFormat.toUpperCase()}`);
+  }
+
+  if (metadata.source) {
+    contextParts.push(`SOURCE PUBLISHER: ${metadata.source}`);
+  }
+
+  if (metadata.contribution) {
+    contextParts.push(`CONTRIBUTOR: ${metadata.contribution}`);
+  }
+
+  if (metadata.hasCommentary) {
+    contextParts.push(`NOTE: This text includes scholarly commentary and interpretation`);
+  }
+
+  return contextParts.length > 0 ? '\n' + contextParts.join('\n') : '';
+}
+
 // Enhanced Perplexity integration specifically for Sanskrit verses from Gretil corpus
 async function createEnhancedGretilWisdom(gretilWisdom: any): Promise<string> {
   try {
-    const prompt = `You are a wise Sanskrit scholar and spiritual guide sharing ancient wisdom from the sacred texts. A seeker has received this Sanskrit verse from the ${gretilWisdom.textName} and seeks understanding.
+    const metadata = gretilWisdom.metadata;
+    const contextInfo = metadata ? buildContextInfo(metadata) : '';
+
+    const prompt = `You are a wise Sanskrit scholar and spiritual guide sharing ancient wisdom from the sacred texts. A seeker has received this Sanskrit verse and seeks understanding.
 
 SANSKRIT VERSE:
 ${gretilWisdom.sanskrit}
 
-SOURCE: ${gretilWisdom.textName} (${gretilWisdom.reference})
-CATEGORY: ${gretilWisdom.category}
+SOURCE: ${metadata?.title || gretilWisdom.textName} (${gretilWisdom.reference})
+CATEGORY: ${metadata?.textType ? metadata.textType.toUpperCase() : gretilWisdom.category}
+${contextInfo}
 
 Please provide beautiful, meaningful spiritual guidance that:
 
 1. **Translation**: Provide an accurate, flowing English translation of the Sanskrit
 2. **Spiritual Significance**: Explain the deeper spiritual meaning and wisdom
-3. **Universal Truth**: Connect this ancient teaching to timeless spiritual principles  
+3. **Universal Truth**: Connect this ancient teaching to timeless spiritual principles
 4. **Modern Relevance**: Show how this applies to contemporary life challenges
 5. **Daily Practice**: Offer gentle, practical guidance for embodying this wisdom
 
-Format as a warm, compassionate response (350-500 words) that feels like personal guidance from a spiritual teacher. Begin with "From the sacred verses of the ${gretilWisdom.textName}, this ancient Sanskrit wisdom speaks to us..."
+Format as a warm, compassionate response (350-500 words) that feels like personal guidance from a spiritual teacher. Begin with "From the sacred verses of the ${metadata?.title || gretilWisdom.textName}, this ancient Sanskrit wisdom speaks to us..."
 
 Make it personal, inspiring, and deeply meaningful - bridging the ancient and modern worlds with love and wisdom.`;
 
@@ -413,7 +523,7 @@ Make it personal, inspiring, and deeply meaningful - bridging the ancient and mo
     });
 
     console.log('Perplexity API response status for Gretil:', response.status);
-    
+
     if (response.ok) {
       const data = await response.json();
       console.log('Perplexity API response received for Gretil, choices:', data.choices?.length || 0);
@@ -1352,34 +1462,147 @@ function formatWisdomMetadata(
     } : null
   });
   
-  // Handle Gretil/Sanskrit sources
+  // Handle Gretil/Sanskrit sources with PARSED METADATA PRIORITY
   if (sourceName.startsWith('Gretil_') || gretilWisdom) {
+    console.log('🔍 formatWisdomMetadata - Processing Gretil source with parsed metadata');
+
+    // PRIORITY 1: Use PARSED METADATA if available
+    if (gretilWisdom?.metadata) {
+      console.log('✅ USING PARSED METADATA for Gretil source');
+
+      const parsedMeta = gretilWisdom.metadata;
+      const reference = gretilWisdom.reference || 'Sacred Verse';
+
+      // Extract verse information from the ACTUAL reference (not metadata)
+      let chapter = 'Chapter Unknown';
+      let section = 'Verse Unknown';
+
+      // Parse chapter and verse from the actual gretilWisdom.reference
+      const referenceInfo = parseReferenceFromString(reference);
+      if (referenceInfo) {
+        chapter = `Chapter ${referenceInfo.chapter}`;
+        section = `Verse ${referenceInfo.verse}`;
+        if (referenceInfo.subVerse) {
+          section += ` (${referenceInfo.subVerse})`;
+        }
+      } else {
+        // Fallback to metadata if reference parsing fails
+        if (parsedMeta.verseNumber) {
+          chapter = `Chapter ${parsedMeta.verseNumber.chapter || 'Unknown'}`;
+          section = `Verse ${parsedMeta.verseNumber.verse}`;
+          if (parsedMeta.verseNumber.subVerse) {
+            section += ` (${parsedMeta.verseNumber.subVerse})`;
+          }
+        } else if (parsedMeta.chapterInfo) {
+          chapter = `Chapter ${parsedMeta.chapterInfo.chapter}`;
+          section = `Section ${parsedMeta.chapterInfo.section || 'Unknown'}`;
+        }
+      }
+
+      // Determine spiritual theme based on text type
+      let spiritualTheme = 'Sacred Wisdom';
+      if (parsedMeta.textType === 'veda') {
+        spiritualTheme = 'Sacred Sound and Divine Invocation';
+      } else if (parsedMeta.textType === 'upanishad') {
+        spiritualTheme = 'Self-Realization and Cosmic Unity';
+      } else if (parsedMeta.textType === 'purana') {
+        spiritualTheme = 'Divine Manifestation and Cosmic Order';
+      } else if (parsedMeta.textType === 'gita') {
+        spiritualTheme = 'Dharma and Spiritual Liberation';
+      } else if (parsedMeta.textType === 'epic') {
+        spiritualTheme = 'Heroic Virtue and Cosmic Order';
+      }
+
+      // Map text type to tradition and genre
+      let tradition = 'Hindu Tradition';
+      let literaryGenre = 'Sacred Scripture';
+
+      if (parsedMeta.textType === 'veda') {
+        tradition = 'Vedic Tradition';
+        literaryGenre = 'Ancient Hymn';
+      } else if (parsedMeta.textType === 'upanishad') {
+        tradition = 'Vedantic Tradition';
+        literaryGenre = 'Philosophical Dialogue';
+      } else if (parsedMeta.textType === 'purana') {
+        tradition = 'Puranic Tradition';
+        literaryGenre = 'Mythological Narrative';
+      } else if (parsedMeta.textType === 'gita') {
+        tradition = 'Bhakti Tradition';
+        literaryGenre = 'Devotional Dialogue';
+      } else if (parsedMeta.textType === 'epic') {
+        tradition = 'Epic Tradition';
+        literaryGenre = 'Heroic Poem';
+      }
+
+      const result = {
+        textName: parsedMeta.title,
+        tradition: tradition,
+        chapter: chapter,
+        section: section,
+        spiritualTheme: spiritualTheme,
+        literaryGenre: literaryGenre,
+        historicalPeriod: parsedMeta.timePeriod || 'Ancient India',
+        estimatedAge: 'Ancient Wisdom',
+        technicalReference: reference,
+        // Include parsed Gretil metadata for UI display
+        gretilMetadata: parsedMeta,
+        // Legacy compatibility
+        theme: spiritualTheme,
+        source: parsedMeta.title
+      };
+
+      console.log('✅ formatWisdomMetadata - PARSED METADATA RESULT:', {
+        textName: result.textName,
+        tradition: result.tradition,
+        hasGretilMetadata: !!result.gretilMetadata
+      });
+
+      return result;
+    }
+
+    // FALLBACK: Use old mapping system if no parsed metadata
+    console.log('⚠️ NO PARSED METADATA - using fallback mapping system');
+
     const textKey = gretilWisdom?.textName || fileName.replace('.txt', '').replace(/[_-]/g, '_');
-    
+
     // Try exact match first
     let mapping = SPIRITUAL_TEXT_MAPPINGS.gretil[textKey];
-    
+
     // If no exact match, try partial matching
     if (!mapping) {
-      mapping = Object.values(SPIRITUAL_TEXT_MAPPINGS.gretil).find(m => 
+      mapping = Object.values(SPIRITUAL_TEXT_MAPPINGS.gretil).find(m =>
         m.textName.toLowerCase().includes(textKey.toLowerCase().split('_')[0]));
     }
-    
+
     // If still no match, try filename-based matching
     if (!mapping) {
       const cleanFileName = fileName.replace('.txt', '').replace(/[_-]/g, '_');
       mapping = SPIRITUAL_TEXT_MAPPINGS.gretil[cleanFileName];
     }
-    
+
     if (mapping) {
       const reference = gretilWisdom?.reference || 'Sacred Verse';
       const category = gretilWisdom?.category || 'Sacred Texts';
-      
+
+      // Parse chapter and verse from the actual reference string
+      let chapter = formatGretilChapter(reference, mapping.textName);
+      let section = formatGretilSection(reference, category, mapping.textName);
+
+      // Try to parse actual chapter/verse numbers from reference
+      const referenceInfo = parseReferenceFromString(reference);
+      if (referenceInfo) {
+        chapter = `Chapter ${referenceInfo.chapter}`;
+        section = `Verse ${referenceInfo.verse}`;
+        if (referenceInfo.subVerse) {
+          section += ` (${referenceInfo.subVerse})`;
+        }
+      }
+
       // Determine spiritual theme based on content
       let spiritualTheme = 'Sacred Wisdom';
       if (mapping.themes) {
         for (const [key, theme] of Object.entries(mapping.themes)) {
-          if (reference.toLowerCase().includes(key) || 
+          if (reference.toLowerCase().includes(key) ||
               category.toLowerCase().includes(key) ||
               (gretilWisdom?.sanskrit && gretilWisdom.sanskrit.toLowerCase().includes(key))) {
             spiritualTheme = String(theme);
@@ -1387,7 +1610,7 @@ function formatWisdomMetadata(
           }
         }
       }
-      
+
       // Fallback theme based on text type if no specific theme found
       if (spiritualTheme === 'Sacred Wisdom') {
         if (mapping.textName.toLowerCase().includes('upanishad')) {
@@ -1400,12 +1623,12 @@ function formatWisdomMetadata(
           spiritualTheme = 'Dharma and Spiritual Liberation';
         }
       }
-      
+
       const result = {
         textName: mapping.textName,
         tradition: mapping.tradition,
-        chapter: formatGretilChapter(reference, mapping.textName),
-        section: formatGretilSection(reference, category, mapping.textName),
+        chapter: chapter,
+        section: section,
         spiritualTheme,
         literaryGenre: mapping.literaryGenre,
         historicalPeriod: mapping.historicalPeriod,
@@ -1415,8 +1638,7 @@ function formatWisdomMetadata(
         theme: spiritualTheme,
         source: mapping.textName
       };
-      
-      console.log('🔍 formatWisdomMetadata DEBUG - RESULT:', result);
+
       return result;
     }
   }
@@ -1755,6 +1977,7 @@ export async function POST(request: NextRequest) {
           }
           
           // Use enhanced metadata formatting for Gretil sources
+
           const enhancedGretilMetadata = formatWisdomMetadata(
             sourceName,
             gretilFileName,
@@ -1776,6 +1999,16 @@ export async function POST(request: NextRequest) {
             filesSearched: [`Gretil: ${gretilFileName}`],
             metadata: `Gretil source: ${gretilWisdom.category} | Estimated verses: ${gretilWisdom.estimatedVerses}`
           };
+
+          console.log('🎯 FINAL API RESPONSE - Gretil:', {
+            sourceName: gretilResponse.sourceName,
+            rawTextAnnotation: {
+              textName: gretilResponse.rawTextAnnotation.textName,
+              tradition: gretilResponse.rawTextAnnotation.tradition,
+              hasGretilMetadata: !!gretilResponse.rawTextAnnotation.gretilMetadata,
+              gretilMetadataTitle: gretilResponse.rawTextAnnotation.gretilMetadata?.title
+            }
+          });
           
           return NextResponse.json({
             success: true,
