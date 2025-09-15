@@ -85,10 +85,10 @@ export default function TestWisdomPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-amber-800 mb-4">
-            🌟 Today&apos;s Wisdom API Test
+            🌟 Today's Wisdom API Test
           </h1>
           <p className="text-lg text-amber-700">
-            Test the Today&apos;s Wisdom API with source &ldquo;Ramayana&rdquo;
+            Test the Today's Wisdom API with source "Ramayana"
           </p>
         </div>
 
@@ -107,7 +107,7 @@ export default function TestWisdomPage() {
             ) : (
               <div className="flex items-center space-x-2">
                 <span>🧪</span>
-                <span>Test Today&apos;s Wisdom API</span>
+                <span>Test Today's Wisdom API</span>
               </div>
             )}
           </button>
@@ -167,8 +167,8 @@ export default function TestWisdomPage() {
         <div className="mt-8 bg-white border border-amber-200 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-amber-800 mb-3">📋 How to Use</h3>
           <ul className="text-gray-700 space-y-2">
-            <li>• Click the &ldquo;Test Today&apos;s Wisdom API&rdquo; button above</li>
-            <li>• The API will search for files in the &ldquo;Ramayana&rdquo; folder of your Google Cloud Storage bucket</li>
+            <li>• Click the "Test Today's Wisdom API" button above</li>
+            <li>• The API will search for files in the "Ramayana" folder of your Google Cloud Storage bucket</li>
             <li>• Results will display below with wisdom content, context, and metadata</li>
             <li>• Check the console for detailed API response logs</li>
             <li>• Any errors will be displayed with helpful information</li>

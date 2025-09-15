@@ -1,0 +1,6 @@
+{
+  "/api/discovery-engine/route": "app/api/discovery-engine/route.js",
+  "/page": "app/page.js",
+  "/submit/page": "app/submit/page.js",
+  "/api/source-discovery/route": "app/api/source-discovery/route.js"
+}

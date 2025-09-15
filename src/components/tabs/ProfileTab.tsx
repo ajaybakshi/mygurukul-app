@@ -244,7 +244,7 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ className = '' }) => {
               </div>
               <p className="text-amber-600 text-sm mt-4 leading-relaxed">
                 MyGurukul brings the timeless wisdom of ancient spiritual texts to your daily life through 
-                AI-powered guidance, helping you navigate life&apos;s challenges with dharmic principles.
+                AI-powered guidance, helping you navigate life's challenges with dharmic principles.
               </p>
             </div>
           </div>

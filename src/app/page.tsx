@@ -62,7 +62,7 @@ export default function HomePage() {
         </h3>
         <div className="bg-white rounded-xl p-6 card-shadow">
           <blockquote className="text-spiritual-800 text-lg italic mb-4">
-            &ldquo;The mind is everything. What you think you become.&rdquo;
+            "The mind is everything. What you think you become."
           </blockquote>
           <cite className="text-spiritual-600 text-sm">
             — Buddha
@@ -82,7 +82,7 @@ export default function HomePage() {
                 How can I find inner peace in daily life?
               </h4>
               <p className="text-spiritual-700 text-sm mb-3">
-                I&apos;m struggling with stress and anxiety. Looking for practical spiritual guidance...
+                I'm struggling with stress and anxiety. Looking for practical spiritual guidance...
               </p>
               <div className="flex items-center justify-between text-xs text-spiritual-600">
                 <span>2 hours ago</span>

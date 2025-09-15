@@ -2,7 +2,6 @@
 import { categoryService } from '../database/categoryService';
 import { corpusChecker } from './corpusChecker';
 import { Storage } from '@google-cloud/storage';
-import { gretilWisdomService } from './gretilWisdomService';
 
 export interface CrossCorpusWisdomOptions {
   userPreference?: string; // specific category or 'random'
@@ -50,7 +49,7 @@ class CrossCorpusWisdomService {
   // GCS-first approach - scan what actually exists first
   async getAllAvailableSources(): Promise<string[]> {
     try {
-      // Get existing GCS sources
+      // Direct GCS scan - see what actually exists first
       const storage = this.initializeStorage();
       const bucketName = 'mygurukul-sacred-texts-corpus';
       const bucket = storage.bucket(bucketName);
@@ -63,7 +62,7 @@ class CrossCorpusWisdomService {
       
       files.forEach(file => {
         const pathParts = file.name.split('/');
-        if (pathParts.length > 1 && pathParts[0].trim() && pathParts[0] !== 'Gretil_Originals') {
+        if (pathParts.length > 1 && pathParts[0].trim()) {
           const folderName = pathParts[0];
           folderCounts.set(folderName, (folderCounts.get(folderName) || 0) + 1);
         }
@@ -78,19 +77,10 @@ class CrossCorpusWisdomService {
       console.log(`GCS-first scan found ${actuallyAvailableFolders.length} folders with content:`, 
         actuallyAvailableFolders.map(f => `${f}(${folderCounts.get(f)} files)`));
       
-      // Get Gretil sources
-      const gretilSources = await gretilWisdomService.getAllAvailableGretilSources();
-      const gretilSourceNames = gretilSources.map(source => `Gretil_${source.folderName}`);
-      
-      console.log(`Found ${gretilSources.length} Gretil sources`);
-      
-      // Combine all sources
-      const allSources = [...actuallyAvailableFolders, ...gretilSourceNames];
-      
-      return allSources.length > 0 ? allSources : ['Ramayana'];
+      return actuallyAvailableFolders.length > 0 ? actuallyAvailableFolders : ['Ramayana'];
       
     } catch (error) {
-      console.error('Error scanning for available documents:', error);
+      console.error('Error scanning GCS for available documents:', error);
       return ['Ramayana']; // fallback
     }
   }
@@ -102,21 +92,25 @@ class CrossCorpusWisdomService {
       
       // If user specified a preference, try to honor it
       if (options.userPreference && options.userPreference !== 'random') {
-        const userPref = options.userPreference; // TypeScript narrowing
         const preferredSource = availableSources.find(source => 
-          source.toLowerCase().includes(userPref.toLowerCase())
+          source.toLowerCase().includes(options.userPreference.toLowerCase())
         );
         if (preferredSource) {
-          return await this.buildSourceInfo(preferredSource, 'user-specified');
+          return {
+            folderName: preferredSource,
+            displayName: this.formatDisplayName(preferredSource),
+            category: await this.getCategoryForSource(preferredSource),
+            isAvailable: true,
+            selectionReason: 'user-specified'
+          };
         }
       }
       
       // Filter out recently shown sources for variety
       let candidateSources = availableSources;
       if (options.excludeRecent && options.excludeRecent.length > 0) {
-        const excludeList = options.excludeRecent; // TypeScript narrowing
         candidateSources = availableSources.filter(source => 
-          !excludeList.includes(source)
+          !options.excludeRecent.includes(source)
         );
       }
       
@@ -128,7 +122,13 @@ class CrossCorpusWisdomService {
       // Random selection with optional weighting
       const selectedSource = this.selectWithDiversity(candidateSources, options.diversityMode);
       
-      return await this.buildSourceInfo(selectedSource, 'intelligent-selection');
+      return {
+        folderName: selectedSource,
+        displayName: this.formatDisplayName(selectedSource),
+        category: await this.getCategoryForSource(selectedSource),
+        isAvailable: true,
+        selectionReason: 'intelligent-selection'
+      };
       
     } catch (error) {
       console.error('Error selecting wisdom source:', error);
@@ -142,34 +142,6 @@ class CrossCorpusWisdomService {
     }
   }
   
-  private async buildSourceInfo(source: string, reason: string): Promise<SelectedCorpusSource> {
-    if (source.startsWith('Gretil_')) {
-      // Handle Gretil source
-      const gretilFileName = source.replace('Gretil_', '');
-      const gretilSources = await gretilWisdomService.getAllAvailableGretilSources();
-      const gretilSource = gretilSources.find(gs => gs.folderName === gretilFileName);
-      
-      if (gretilSource) {
-        return {
-          folderName: source, // Keep the Gretil_ prefix for identification
-          displayName: gretilSource.displayName,
-          category: gretilSource.category,
-          isAvailable: true,
-          selectionReason: reason
-        };
-      }
-    }
-    
-    // Handle regular source
-    return {
-      folderName: source,
-      displayName: this.formatDisplayName(source),
-      category: await this.getCategoryForSource(source),
-      isAvailable: true,
-      selectionReason: reason
-    };
-  }
-
   // Helper methods
   private selectWithDiversity(sources: string[], mode: string = 'balanced'): string {
     const randomIndex = Math.floor(Math.random() * sources.length);

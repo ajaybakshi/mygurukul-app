@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       process.env.USE_MOCK_PERPLEXITY = 'false'
       
       const mockResult = await perplexitySearch('How can I find inner peace?', {
-        model: 'sonar',
+        model: 'sonar-medium-online',
         includeSpiritualContext: true,
         searchFocus: 'spiritual_texts'
       })

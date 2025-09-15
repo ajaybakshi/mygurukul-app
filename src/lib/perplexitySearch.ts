@@ -424,14 +424,7 @@ export async function perplexitySearch(
     const transformedResponse: PerplexitySearchResponse = {
       answer: answerText,
       results: [], // Perplexity doesn't return structured search results
-      citations: citations.map(citation => ({
-        ...citation,
-        sources: citation.sources.map(source => ({
-          referenceId: source.referenceId,
-          title: source.title || 'Perplexity Source',
-          uri: source.uri || 'https://perplexity.ai'
-        }))
-      })),
+      citations: citations,
       references: citations.map(citation => ({
         title: citation.sources[0]?.title || 'Perplexity Source',
         uri: citation.sources[0]?.uri || 'https://perplexity.ai',
