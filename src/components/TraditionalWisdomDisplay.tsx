@@ -10,6 +10,7 @@ interface WisdomData {
     characters?: string;
     location?: string;
     theme?: string;
+    technicalReference?: string; // Scholarly reference like 'Ram_2,40.20'
   };
   wisdom: string;
   context: string;
@@ -86,6 +87,16 @@ export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false
               <span className="ml-2 text-gray-700">{wisdomData.rawTextAnnotation.location}</span>
             </div>
           )}
+
+          {/* Scholarly Reference Display */}
+          {wisdomData.rawTextAnnotation.technicalReference && (
+            <div className="mt-2 pt-2 border-t border-amber-200">
+              <span className="font-medium text-amber-800">Reference:</span>
+              <span className="ml-2 font-mono text-sm bg-amber-100 px-2 py-1 rounded text-amber-900">
+                {wisdomData.rawTextAnnotation.technicalReference}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Raw Sacred Text */}
@@ -130,3 +141,4 @@ export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false
     </div>
   );
 }
+
