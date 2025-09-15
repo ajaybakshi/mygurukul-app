@@ -124,7 +124,7 @@ export default function AIResponse({ response, isLoading, error }: AIResponsePro
                 </span>
                 <div className="flex-1">
                   <p className="text-sm text-spiritual-700 mb-1">
-                    "{citation.text}"
+                    &ldquo;{citation.text}&rdquo;
                   </p>
                   {citation.title && (
                     <div className="flex items-center space-x-2">
@@ -170,9 +170,9 @@ export default function AIResponse({ response, isLoading, error }: AIResponsePro
                     <h5 className="text-sm font-medium text-spiritual-800 mb-1">
                       {reference.title}
                     </h5>
-                    {reference.snippet && (
+                    {reference.chunkInfo?.content && (
                       <p className="text-xs text-spiritual-600 line-clamp-2">
-                        {reference.snippet}
+                        {reference.chunkInfo.content}
                       </p>
                     )}
                   </div>

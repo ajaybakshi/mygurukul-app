@@ -87,7 +87,7 @@ const EmptyState = ({ category }: { category: string }) => (
     </div>
     <h3 className="text-xl sm:text-2xl font-bold text-amber-800 mb-4">No Sources Found</h3>
     <p className="text-amber-600 mb-4 text-base sm:text-lg leading-relaxed">
-      No source materials are currently available for the "{category}" category.
+      No source materials are currently available for the &ldquo;{category}&rdquo; category.
     </p>
     <p className="text-amber-500 text-sm sm:text-base">
       Please check back later or try a different category.

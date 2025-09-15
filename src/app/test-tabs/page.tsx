@@ -219,7 +219,7 @@ const TestTabsContent: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-amber-600">
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                 <div className="font-semibold text-amber-800 mb-1">Home Tab</div>
-                <div>Test Today's Wisdom loading, tabbed content, and "Continue Discussion in Ask Tab" button</div>
+                <div>Test Today&apos;s Wisdom loading, tabbed content, and &ldquo;Continue Discussion in Ask Tab&rdquo; button</div>
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                 <div className="font-semibold text-amber-800 mb-1">Ask Tab</div>

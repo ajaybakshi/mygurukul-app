@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Storage } from '@google-cloud/storage';
 import { crossCorpusWisdomService } from '../../../lib/services/crossCorpusWisdomService';
+import { gretilWisdomService } from '../../../lib/services/gretilWisdomService';
 
 interface TodaysWisdom {
   // Raw sacred text (what seeker reads first)
@@ -349,6 +350,67 @@ Make it personal, relatable, and deeply inspiring - not academic or distant.`;
   }
 }
 
+// Enhanced Perplexity integration specifically for Sanskrit verses from Gretil corpus
+async function createEnhancedGretilWisdom(gretilWisdom: any): Promise<string> {
+  try {
+    const prompt = `You are a wise Sanskrit scholar and spiritual guide sharing ancient wisdom from the sacred texts. A seeker has received this Sanskrit verse from the ${gretilWisdom.textName} and seeks understanding.
+
+SANSKRIT VERSE:
+${gretilWisdom.sanskrit}
+
+SOURCE: ${gretilWisdom.textName} (${gretilWisdom.reference})
+CATEGORY: ${gretilWisdom.category}
+
+Please provide beautiful, meaningful spiritual guidance that:
+
+1. **Translation**: Provide an accurate, flowing English translation of the Sanskrit
+2. **Spiritual Significance**: Explain the deeper spiritual meaning and wisdom
+3. **Universal Truth**: Connect this ancient teaching to timeless spiritual principles  
+4. **Modern Relevance**: Show how this applies to contemporary life challenges
+5. **Daily Practice**: Offer gentle, practical guidance for embodying this wisdom
+
+Format as a warm, compassionate response (350-500 words) that feels like personal guidance from a spiritual teacher. Begin with "From the sacred verses of the ${gretilWisdom.textName}, this ancient Sanskrit wisdom speaks to us..."
+
+Make it personal, inspiring, and deeply meaningful - bridging the ancient and modern worlds with love and wisdom.`;
+
+    console.log('Making Perplexity API call for Gretil wisdom enhancement...');
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 700,
+        temperature: 0.7
+      })
+    });
+
+    console.log('Perplexity API response status for Gretil:', response.status);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Perplexity API response received for Gretil, choices:', data.choices?.length || 0);
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        return data.choices[0].message.content;
+      } else {
+        console.log('Unexpected Perplexity API response format for Gretil:', JSON.stringify(data, null, 2));
+        return gretilWisdom.sanskrit;
+      }
+    } else {
+      const errorText = await response.text();
+      console.log('Perplexity API error response for Gretil:', errorText);
+      return gretilWisdom.sanskrit;
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.log('Gretil AI enhancement failed:', errorMessage);
+    return gretilWisdom.sanskrit;
+  }
+}
+
 function generateEncouragement(type: 'story' | 'verse' | 'teaching'): string {
   const encouragements = {
     story: "This story holds deeper meanings. Would you like to explore the spiritual significance behind these events?",
@@ -540,6 +602,64 @@ export async function POST(request: NextRequest) {
 
   try {
     console.log(`Today's Wisdom request for folder: ${sourceName}`);
+    
+    // Handle Gretil source selection
+    if (sourceName.startsWith('Gretil_')) {
+      console.log('Processing Gretil source request...');
+      const gretilFileName = sourceName.replace('Gretil_', '');
+      
+      try {
+        const gretilWisdom = await gretilWisdomService.extractWisdomFromGretilSource(gretilFileName);
+        
+        if (gretilWisdom) {
+          // Generate AI-enhanced wisdom or use fallback
+          let enhancedWisdom = gretilWisdom.sanskrit;
+          let finalEncouragement = "This ancient wisdom from the Gretil corpus offers timeless guidance. Would you like to explore its deeper meaning?";
+          
+          try {
+            console.log('Attempting AI enhancement for Gretil wisdom...');
+            const aiEnhancedWisdom = await createEnhancedGretilWisdom(gretilWisdom);
+            
+            if (aiEnhancedWisdom && aiEnhancedWisdom.length > 50) {
+              enhancedWisdom = aiEnhancedWisdom;
+              finalEncouragement = generateContextualEncouragement(aiEnhancedWisdom);
+            }
+          } catch (error) {
+            console.log('Gretil AI enhancement error, using fallback:', error);
+          }
+          
+          const gretilResponse = {
+            rawText: gretilWisdom.sanskrit,
+            rawTextAnnotation: {
+              chapter: gretilWisdom.reference,
+              section: 'Gretil Corpus',
+              source: gretilWisdom.textName,
+              theme: gretilWisdom.category.toLowerCase()
+            },
+            wisdom: enhancedWisdom,
+            context: `Daily wisdom from ${gretilWisdom.textName} - ${gretilWisdom.category}`,
+            type: 'verse' as const,
+            sourceName: gretilWisdom.textName,
+            timestamp: new Date().toISOString(),
+            encouragement: finalEncouragement,
+            sourceLocation: `From ${gretilWisdom.textName} (${gretilWisdom.reference})`,
+            filesSearched: [`Gretil: ${gretilFileName}`],
+            metadata: `Gretil source: ${gretilWisdom.category} | Estimated verses: ${gretilWisdom.estimatedVerses}`
+          };
+          
+          return NextResponse.json({
+            success: true,
+            todaysWisdom: gretilResponse,
+            selectedSource: gretilWisdom.textName,
+            selectionMethod: selectionMethod,
+            message: `Wisdom selected from Gretil corpus: ${gretilWisdom.textName}`
+          });
+        }
+      } catch (gretilError) {
+        console.error('Gretil processing error:', gretilError);
+        // Continue with regular processing as fallback
+      }
+    }
     
     const files = await getAllFilesFromFolder(sourceName);
     

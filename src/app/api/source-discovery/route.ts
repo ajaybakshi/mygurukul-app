@@ -370,7 +370,7 @@ export async function GET() {
       message: 'Source Discovery API is running',
       version: '1.0.0',
       availableFiles: Object.keys(mockCorpusFiles).length,
-      categories: [...new Set(Object.values(mockCorpusFiles).map(f => f.category))],
+      categories: Array.from(new Set(Object.values(mockCorpusFiles).map(f => f.category))),
       endpoints: {
         POST: '/api/source-discovery - Submit file names for discovery',
         GET: '/api/source-discovery - API information and health check'

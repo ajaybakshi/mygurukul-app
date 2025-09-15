@@ -104,7 +104,7 @@ const AskTab: React.FC<AskTabProps> = ({ className = '' }) => {
         }
       }
     }
-  }, [wisdomContext]);
+  }, [wisdomContext, setQuestion]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,7 +260,7 @@ const AskTab: React.FC<AskTabProps> = ({ className = '' }) => {
               <div className="inline-flex items-center bg-gradient-to-r from-blue-50 to-blue-100/50 px-4 py-2 rounded-full border border-blue-200/50 shadow-sm">
                 <span className="text-lg mr-2">🕉️</span>
                 <span className="text-base text-blue-700 font-medium">
-                  Discussing today's wisdom from {wisdomContext.sourceName}
+                  Discussing today&apos;s wisdom from {wisdomContext.sourceName}
                 </span>
               </div>
             </div>

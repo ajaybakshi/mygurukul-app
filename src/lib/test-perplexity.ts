@@ -26,7 +26,7 @@ async function testPerplexityImplementation() {
     process.env.USE_MOCK_PERPLEXITY = 'true'
     
     const mockResult = await perplexitySearch('How can I find inner peace?', {
-      model: 'sonar-medium-online',
+      model: 'sonar',
       includeSpiritualContext: true,
       searchFocus: 'spiritual_texts'
     })

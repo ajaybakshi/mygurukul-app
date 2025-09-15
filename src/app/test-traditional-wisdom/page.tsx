@@ -109,7 +109,7 @@ export default function TestTraditionalWisdom() {
           <div className="space-y-3 text-gray-600">
             <p>1. <strong>Raw Sacred Text:</strong> The original scripture appears first in traditional format</p>
             <p>2. <strong>Chapter Annotation:</strong> Shows the source chapter, section, characters, and theme</p>
-            <p>3. <strong>Guru's Interpretation:</strong> AI-enhanced spiritual guidance follows the raw text</p>
+            <p>3. <strong>Guru&apos;s Interpretation:</strong> AI-enhanced spiritual guidance follows the raw text</p>
             <p>4. <strong>Traditional Design:</strong> Uses Bharat-inspired colors and typography</p>
             <p>5. <strong>Responsive:</strong> Works beautifully on all device sizes</p>
           </div>

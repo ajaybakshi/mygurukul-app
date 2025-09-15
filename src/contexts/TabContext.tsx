@@ -19,6 +19,14 @@ interface TodaysWisdomData {
   type: 'story' | 'verse' | 'teaching';
   sourceName: string;
   encouragement: string;
+  // Enhanced properties from API response
+  selectedSource?: string;
+  selectionMethod?: string;
+  selectedSourceInfo?: {
+    displayName: string;
+    category: string;
+  };
+  message?: string;
 }
 
 interface Message {

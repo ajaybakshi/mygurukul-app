@@ -67,7 +67,7 @@ const LibraryTab: React.FC<LibraryTabProps> = ({ className = '' }) => {
       );
       
       const categoryMatches = categoryWithTexts.category.name.toLowerCase().includes(query) ||
-                            categoryWithTexts.category.description.toLowerCase().includes(query);
+                            (categoryWithTexts.category.description?.toLowerCase().includes(query) ?? false);
       
       if (categoryMatches || filteredTexts.length > 0) {
         return {

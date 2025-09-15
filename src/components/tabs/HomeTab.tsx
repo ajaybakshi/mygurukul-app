@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, MessageSquare } from 'lucide-react';
 import { useTabContext } from '@/contexts/TabContext';
 
@@ -40,6 +40,14 @@ interface TodaysWisdomData {
   type: 'story' | 'verse' | 'teaching';
   sourceName: string;
   encouragement: string;
+  // Enhanced properties from API response
+  selectedSource?: string;
+  selectionMethod?: string;
+  selectedSourceInfo?: {
+    displayName: string;
+    category: string;
+  };
+  message?: string;
 }
 
 interface HomeTabProps {
@@ -68,7 +76,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
   // Cache management functions
   const getCacheKey = () => `mygurukul_wisdom_${new Date().toDateString()}`;
   
-  const getCachedWisdom = (): TodaysWisdomData | null => {
+  const getCachedWisdom = useCallback((): TodaysWisdomData | null => {
     try {
       const cached = localStorage.getItem(getCacheKey());
       if (cached) {
@@ -84,9 +92,9 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
       localStorage.removeItem(getCacheKey());
     }
     return null;
-  };
+  }, []);
 
-  const setCachedWisdom = (wisdomData: TodaysWisdomData) => {
+  const setCachedWisdom = useCallback((wisdomData: TodaysWisdomData) => {
     try {
       const cacheData = {
         data: wisdomData,
@@ -97,10 +105,10 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
     } catch (error) {
       console.error('Error caching wisdom:', error);
     }
-  };
+  }, []);
 
   // Function to fetch Today's Wisdom with caching
-  const fetchTodaysWisdom = async (forceRefresh: boolean = false) => {
+  const fetchTodaysWisdom = useCallback(async (forceRefresh: boolean = false) => {
     // Check cache first unless force refresh
     if (!forceRefresh) {
       const cachedWisdom = getCachedWisdom();
@@ -165,7 +173,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
     } finally {
       setIsLoadingWisdom(false);
     }
-  };
+  }, [selectedSource, getCachedWisdom, setTodaysWisdom, setWisdomError, setIsLoadingWisdom, setCachedWisdom]);
 
   const loadAvailableSources = async () => {
     try {
@@ -206,7 +214,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
         fetchTodaysWisdom(false);
       }
     }
-  }, []); // Empty dependency array for initial load only
+  }, [todaysWisdom, fetchTodaysWisdom, getCachedWisdom, setTodaysWisdom, setWisdomError]); // Empty dependency array for initial load only
 
   useEffect(() => {
     loadAvailableSources();
@@ -244,7 +252,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
         Gathering Sacred Wisdom
       </h3>
       <p className="text-amber-600 text-sm animate-pulse">
-        Preparing today's divine guidance for your spiritual journey...
+        Preparing today&apos;s divine guidance for your spiritual journey...
       </p>
     </div>
   );
@@ -253,10 +261,10 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
   const WisdomErrorState = () => (
     <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
       <div className="text-red-600 text-4xl mb-4">⚠️</div>
-      <h3 className="text-red-800 font-semibold mb-2">Unable to Load Today's Wisdom</h3>
+      <h3 className="text-red-800 font-semibold mb-2">Unable to Load Today&apos;s Wisdom</h3>
       <p className="text-red-700 text-sm mb-4">{wisdomError}</p>
       <button
-        onClick={fetchTodaysWisdom}
+        onClick={() => fetchTodaysWisdom()}
         className="bg-red-100 hover:bg-red-200 text-red-800 px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:scale-105 active:scale-95"
       >
         Try Again
@@ -283,7 +291,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
         <div className="text-center py-8">
           <div className="text-6xl mb-4">🕉️</div>
           <h1 className="text-3xl font-bold mb-2" style={{ color: '#D4AF37' }}>
-            Today's Sacred Reading
+            Today&apos;s Sacred Reading
           </h1>
           <p className="text-amber-600 text-lg">
             Begin your day with divine wisdom from ancient scriptures
@@ -415,7 +423,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
                   >
                     <div className="flex items-center space-x-2">
                       <span>🙏</span>
-                      <span>Guru's Interpretation</span>
+                      <span>Guru&apos;s Interpretation</span>
                     </div>
                   </button>
                 </div>
@@ -483,7 +491,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
                   {/* Sacred Text */}
                   <div className="bg-white/60 p-6 rounded-lg border-l-4 border-amber-300 shadow-sm">
                     <div className="text-gray-800 leading-relaxed text-lg font-serif italic text-center">
-                      "{todaysWisdom.rawText}"
+                      &ldquo;{todaysWisdom.rawText}&rdquo;
                     </div>
                   </div>
                 </div>
@@ -539,7 +547,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
               {/* Helpful hint when no wisdom loaded */}
               {!todaysWisdom && !isLoadingWisdom && (
                 <p className="text-amber-600 text-sm mt-3">
-                  💡 Load today's wisdom first to start a contextual discussion
+                  💡 Load today&apos;s wisdom first to start a contextual discussion
                 </p>
               )}
               
