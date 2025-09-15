@@ -34,6 +34,7 @@ interface TodaysWisdomData {
     characters?: string;
     location?: string;
     theme?: string;
+    technicalReference?: string;
   };
   wisdom: string;
   context: string;

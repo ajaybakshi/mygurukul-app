@@ -11,6 +11,13 @@ interface WisdomData {
     location?: string;
     theme?: string;
     technicalReference?: string; // Scholarly reference like 'Ram_2,40.20'
+    logicalUnitType?: 'Epic' | 'Philosophical' | 'Dialogue' | 'Hymnal' | 'Narrative'; // Logical unit type
+    extractionMethod?: 'narrative-sequence' | 'commentary-unit' | 'dialogue-exchange' | 'verse-unit' | 'thematic-unit'; // How it was extracted
+    verseRange?: {
+      start: string;
+      end: string;
+      count: number;
+    };
   };
   wisdom: string;
   context: string;
@@ -24,7 +31,50 @@ interface Props {
   isLoading?: boolean;
 }
 
+// Helper function to get logical unit type indicator
+const getLogicalUnitIndicator = (logicalUnitType?: string) => {
+  const typeMap = {
+    'Epic': { emoji: '📖', label: 'Epic', color: 'from-orange-500 to-red-500', bgColor: 'bg-gradient-to-r from-orange-50 to-red-50' },
+    'Philosophical': { emoji: '🕉️', label: 'Philosophical', color: 'from-purple-500 to-indigo-500', bgColor: 'bg-gradient-to-r from-purple-50 to-indigo-50' },
+    'Dialogue': { emoji: '💬', label: 'Dialogue', color: 'from-blue-500 to-cyan-500', bgColor: 'bg-gradient-to-r from-blue-50 to-cyan-50' },
+    'Hymnal': { emoji: '🎵', label: 'Hymnal', color: 'from-green-500 to-emerald-500', bgColor: 'bg-gradient-to-r from-green-50 to-emerald-50' },
+    'Narrative': { emoji: '📚', label: 'Narrative', color: 'from-amber-500 to-yellow-500', bgColor: 'bg-gradient-to-r from-amber-50 to-yellow-50' }
+  };
+
+  const defaultType = { emoji: '📜', label: 'Scripture', color: 'from-gray-500 to-gray-600', bgColor: 'bg-gradient-to-r from-gray-50 to-gray-100' };
+
+  return logicalUnitType ? (typeMap[logicalUnitType as keyof typeof typeMap] || defaultType) : defaultType;
+};
+
+// Helper function to format verse range
+const formatVerseRange = (verseRange?: { start: string; end: string; count: number }) => {
+  if (!verseRange) return null;
+
+  if (verseRange.start === verseRange.end) {
+    return `Verse ${verseRange.start}`;
+  }
+
+  return `${verseRange.start}-${verseRange.end} (${verseRange.count} verses)`;
+};
+
+// Helper function to format extraction method
+const formatExtractionMethod = (method?: string) => {
+  const methodMap = {
+    'narrative-sequence': 'Narrative Sequence',
+    'commentary-unit': 'Commentary Unit',
+    'dialogue-exchange': 'Dialogue Exchange',
+    'verse-unit': 'Verse Unit',
+    'thematic-unit': 'Thematic Unit'
+  };
+
+  return method ? (methodMap[method as keyof typeof methodMap] || method.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())) : null;
+};
+
 export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false }: Props) {
+  const logicalUnitIndicator = getLogicalUnitIndicator(wisdomData.rawTextAnnotation.logicalUnitType);
+  const verseRangeDisplay = formatVerseRange(wisdomData.rawTextAnnotation.verseRange);
+  const extractionMethodDisplay = formatExtractionMethod(wisdomData.rawTextAnnotation.extractionMethod);
+
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto p-6 space-y-8">
@@ -53,9 +103,14 @@ export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false
       </div>
 
       {/* Part 1: Raw Sacred Text */}
-      <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-l-4 border-amber-400 rounded-lg p-6 shadow-lg">
+      <div className={`bg-gradient-to-br ${logicalUnitIndicator.bgColor} border-l-4 border-amber-400 rounded-lg p-6 shadow-lg`}>
         <div className="flex items-center mb-4">
-          <div className="text-amber-700 text-lg font-semibold">📜 Sacred Text</div>
+          <div className="flex items-center space-x-3">
+            <div className="text-2xl">{logicalUnitIndicator.emoji}</div>
+            <div className={`text-lg font-semibold bg-gradient-to-r ${logicalUnitIndicator.color} bg-clip-text text-transparent`}>
+              {logicalUnitIndicator.label} Text
+            </div>
+          </div>
           <div className="ml-auto text-sm text-amber-600">Original Scripture</div>
         </div>
         
@@ -88,15 +143,38 @@ export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false
             </div>
           )}
 
-          {/* Scholarly Reference Display */}
-          {wisdomData.rawTextAnnotation.technicalReference && (
-            <div className="mt-2 pt-2 border-t border-amber-200">
-              <span className="font-medium text-amber-800">Reference:</span>
-              <span className="ml-2 font-mono text-sm bg-amber-100 px-2 py-1 rounded text-amber-900">
-                {wisdomData.rawTextAnnotation.technicalReference}
-              </span>
-            </div>
-          )}
+          {/* Enhanced Reference Display */}
+          <div className="mt-2 pt-2 border-t border-amber-200 space-y-2">
+            {/* Technical Reference */}
+            {wisdomData.rawTextAnnotation.technicalReference && (
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="font-medium text-amber-800">Reference:</span>
+                <span className="font-mono text-sm bg-amber-100 px-2 py-1 rounded text-amber-900">
+                  {wisdomData.rawTextAnnotation.technicalReference}
+                </span>
+              </div>
+            )}
+
+            {/* Verse Range */}
+            {verseRangeDisplay && (
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="font-medium text-amber-800">Range:</span>
+                <span className="text-sm bg-blue-100 px-2 py-1 rounded text-blue-800">
+                  {verseRangeDisplay}
+                </span>
+              </div>
+            )}
+
+            {/* Extraction Method */}
+            {extractionMethodDisplay && (
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="font-medium text-amber-800">Method:</span>
+                <span className="text-sm bg-green-100 px-2 py-1 rounded text-green-800">
+                  {extractionMethodDisplay}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Raw Sacred Text */}

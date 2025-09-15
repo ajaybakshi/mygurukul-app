@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Storage } from '@google-cloud/storage';
 import { crossCorpusWisdomService } from '../../../lib/services/crossCorpusWisdomService';
+import { gretilWisdomService } from '../../../lib/services/gretilWisdomService';
 
 interface TodaysWisdom {
   // Raw sacred text (what seeker reads first)
@@ -13,6 +14,13 @@ interface TodaysWisdom {
     location?: string;
     theme?: string;
     technicalReference?: string;
+    logicalUnitType?: 'Epic' | 'Philosophical' | 'Dialogue' | 'Hymnal' | 'Narrative'; // Logical unit type
+    extractionMethod?: 'narrative-sequence' | 'commentary-unit' | 'dialogue-exchange' | 'verse-unit' | 'thematic-unit'; // How it was extracted
+    verseRange?: {
+      start: string;
+      end: string;
+      count: number;
+    };
   };
 
   // AI enhanced interpretation (Guru's wisdom)
@@ -235,6 +243,7 @@ async function selectTodaysWisdomFromFiles(
     
     const chapterInfo = extractChapterInfo(selectedSection.source, extractedContent.metadata);
     const technicalReference = generateTechnicalReference(selectedSection.source, extractedContent.metadata);
+    const logicalUnitInfo = determineLogicalUnitInfo(selectedSection.source, extractedContent.narrative, extractedContent.metadata);
 
     return {
       // Raw sacred text (what seeker reads first)
@@ -246,7 +255,10 @@ async function selectTodaysWisdomFromFiles(
         characters: selectedSection.dimensions.character,
         location: selectedSection.dimensions.location,
         theme: selectedSection.dimensions.theme,
-        technicalReference
+        technicalReference,
+        logicalUnitType: logicalUnitInfo.logicalUnitType,
+        extractionMethod: logicalUnitInfo.extractionMethod,
+        verseRange: logicalUnitInfo.verseRange
       },
       
       // AI enhanced interpretation (Guru's wisdom)
@@ -516,17 +528,25 @@ export async function POST(request: NextRequest) {
       selectionMethod = 'user-specified';
       console.log(`Traditional source selection: ${sourceName}`);
     } else {
-      // New cross-corpus intelligent selection
-      console.log('Using cross-corpus selection...');
-      selectedSourceInfo = await crossCorpusWisdomService.selectWisdomSource({
-        userPreference: body.sourcePreference || 'random',
-        excludeRecent: body.excludeRecent || [],
-        diversityMode: body.diversityMode || 'balanced'
-      });
+      // New GCS-first intelligent selection using gretilWisdomService
+      console.log('Using GCS-first selection...');
+      const gretilSources = await gretilWisdomService.getAllAvailableGretilSources();
       
-      sourceName = selectedSourceInfo.folderName;
-      selectionMethod = 'cross-corpus';
-      console.log(`Cross-corpus selection: ${selectedSourceInfo.displayName} from ${selectedSourceInfo.category} (${selectedSourceInfo.selectionReason})`);
+      if (gretilSources.length > 0) {
+        const randomSource = gretilSources[Math.floor(Math.random() * gretilSources.length)];
+        sourceName = randomSource.folderName;
+        selectedSourceInfo = {
+          folderName: randomSource.folderName,
+          displayName: randomSource.displayName,
+          category: randomSource.category,
+          selectionReason: 'random-gcs-selection'
+        };
+        selectionMethod = 'cross-corpus';
+        console.log(`GCS-first selection: ${selectedSourceInfo.displayName} from ${selectedSourceInfo.category}`);
+      } else {
+        sourceName = 'Bhagvad_Gita';
+        selectionMethod = 'user-specified';
+      }
     }
     
     if (!sourceName) {
@@ -542,18 +562,101 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    console.log(`Today's Wisdom request for folder: ${sourceName}`);
+    console.log(`Today's Wisdom request for source: ${sourceName}`);
     
-    const files = await getAllFilesFromFolder(sourceName);
+    // Use GCS-first approach with gretilWisdomService
+    const extractedWisdom = await gretilWisdomService.extractWisdomFromGretilSource(sourceName);
     
-    if (files.length === 0) {
-      throw new Error(`No files found in folder ${sourceName}`);
+    if (!extractedWisdom) {
+      throw new Error(`No wisdom extracted from source ${sourceName}`);
     }
     
-    const todaysWisdom = await selectTodaysWisdomFromFiles(files, sourceName);
+    // CRITICAL: Clean up Sanskrit text for user experience - limit to 2-3 verses max
+    let cleanSanskrit = extractedWisdom.sanskrit;
     
-    // Get available sources for frontend dropdown
-    const availableSources = await crossCorpusWisdomService.getAllAvailableSources();
+    // If content is too long, truncate it intelligently
+    if (cleanSanskrit.length > 300) {
+      console.log(`⚠️ Content too long (${cleanSanskrit.length} chars), truncating for user experience`);
+      
+      // Try to find natural break points
+      const verseBreaks = cleanSanskrit.split(/[|]{2,}|\s{3,}/);
+      if (verseBreaks.length > 2) {
+        cleanSanskrit = verseBreaks.slice(0, 2).join(' || ');
+      } else {
+        // Fallback: just truncate at 300 characters
+        cleanSanskrit = cleanSanskrit.substring(0, 300) + '...';
+      }
+    }
+    
+    console.log(`📏 Final Sanskrit content length: ${cleanSanskrit.length} characters`);
+
+    // Generate AI-enhanced Guru interpretation
+    let guruWisdom = cleanSanskrit; // Use cleaned Sanskrit as fallback
+    let encouragement = "This sacred wisdom offers guidance for your journey. What aspect resonates most deeply with you?";
+    
+    try {
+      console.log('🎯 Generating AI-enhanced Guru interpretation...');
+      const extractedContent = {
+        narrative: cleanSanskrit,
+        metadata: `Source: ${extractedWisdom.textName} | Category: ${extractedWisdom.category}`,
+        combined: `${cleanSanskrit}\n\nSource: ${extractedWisdom.textName} | Category: ${extractedWisdom.category}`
+      };
+      
+      const enhancedWisdom = await createEnhancedWisdom(extractedContent, extractedWisdom.textName);
+      
+      if (enhancedWisdom && enhancedWisdom.length > 50) {
+        guruWisdom = enhancedWisdom;
+        encouragement = generateContextualEncouragement(enhancedWisdom);
+        console.log('✅ AI enhancement successful');
+      } else {
+        console.log('⚠️ AI enhancement failed, using cleaned Sanskrit text');
+      }
+    } catch (error) {
+      console.log('❌ AI enhancement error:', error);
+    }
+
+    // Enhanced metadata extraction from logical unit if available
+    const logicalUnitType = extractedWisdom.metadata?.enhancedTextType || 'Narrative';
+    const extractionMethod = extractedWisdom.metadata?.textType || 'verse-unit';
+    const verseRange = extractedWisdom.metadata?.verseNumber ? {
+      start: extractedWisdom.metadata.verseNumber.verse.toString(),
+      end: extractedWisdom.metadata.verseNumber.verse.toString(),
+      count: 1
+    } : {
+      start: '1',
+      end: '1',
+      count: 1
+    };
+
+    // Convert ExtractedWisdom to TodaysWisdom format
+    const todaysWisdom: TodaysWisdom = {
+      rawText: cleanSanskrit, // Use cleaned, digestible Sanskrit text
+      rawTextAnnotation: {
+        chapter: extractedWisdom.metadata?.title || extractedWisdom.textName,
+        section: extractedWisdom.metadata?.chapterInfo?.chapter?.toString() || 'Sacred Section',
+        source: extractedWisdom.textName,
+        characters: extractedWisdom.metadata?.hasCommentary ? 'Commentary' : 'Sacred Text',
+        location: extractedWisdom.metadata?.timePeriod || 'Sacred Realm',
+        theme: extractedWisdom.metadata?.textType || 'wisdom',
+        technicalReference: extractedWisdom.metadata?.verseNumber?.fullReference || extractedWisdom.reference,
+        logicalUnitType: logicalUnitType as any,
+        extractionMethod: extractionMethod as any,
+        verseRange: verseRange
+      },
+      wisdom: guruWisdom, // AI-enhanced Guru interpretation
+      context: `Daily wisdom from ${extractedWisdom.textName}`,
+      type: 'verse',
+      sourceName: extractedWisdom.textName,
+      timestamp: new Date().toISOString(),
+      encouragement: encouragement,
+      sourceLocation: `From ${extractedWisdom.textName}`,
+      filesSearched: [sourceName],
+      metadata: `Category: ${extractedWisdom.category} | Estimated verses: ${extractedWisdom.estimatedVerses} | Text Type: ${extractedWisdom.metadata?.enhancedTextType || 'Narrative'}`
+    };
+    
+    // Get available sources for frontend dropdown using GCS-first approach
+    const gretilSources = await gretilWisdomService.getAllAvailableGretilSources();
+    const availableSources = gretilSources.map(source => source.folderName);
 
     return NextResponse.json({
       success: true,
@@ -632,4 +735,71 @@ function generateTechnicalReference(sourceFile: string, metadata: string): strin
   }
 
   return undefined;
+}
+
+// Determine logical unit information based on content analysis
+function determineLogicalUnitInfo(sourceFile: string, content: string, metadata: string): {
+  logicalUnitType: 'Epic' | 'Philosophical' | 'Dialogue' | 'Hymnal' | 'Narrative' | undefined;
+  extractionMethod: 'narrative-sequence' | 'commentary-unit' | 'dialogue-exchange' | 'verse-unit' | 'thematic-unit' | undefined;
+  verseRange?: { start: string; end: string; count: number };
+} {
+  const contentLower = content.toLowerCase();
+  const fileNameLower = sourceFile.toLowerCase();
+
+  let logicalUnitType: 'Epic' | 'Philosophical' | 'Dialogue' | 'Hymnal' | 'Narrative' | undefined;
+  let extractionMethod: 'narrative-sequence' | 'commentary-unit' | 'dialogue-exchange' | 'verse-unit' | 'thematic-unit' | undefined;
+
+  // Determine logical unit type based on source and content
+  if (fileNameLower.includes('ramayana') || fileNameLower.includes('mahabharata') || fileNameLower.includes('purana')) {
+    logicalUnitType = 'Epic';
+  } else if (fileNameLower.includes('upanishad') || contentLower.includes('brahman') || contentLower.includes('atman') || contentLower.includes('consciousness')) {
+    logicalUnitType = 'Philosophical';
+  } else if (contentLower.includes('said') || contentLower.includes('spoke') || contentLower.includes('replied') || contentLower.includes('asked')) {
+    logicalUnitType = 'Dialogue';
+  } else if (fileNameLower.includes('veda') || fileNameLower.includes('hymn') || contentLower.includes('devas') || contentLower.includes('praise')) {
+    logicalUnitType = 'Hymnal';
+  } else {
+    logicalUnitType = 'Narrative';
+  }
+
+  // Determine extraction method based on content characteristics
+  if (contentLower.includes('said') && contentLower.includes('replied')) {
+    extractionMethod = 'dialogue-exchange';
+  } else if (contentLower.includes('chapter') || contentLower.includes('section') || contentLower.includes('verse')) {
+    extractionMethod = 'verse-unit';
+  } else if (contentLower.includes('commentary') || contentLower.includes('explanation')) {
+    extractionMethod = 'commentary-unit';
+  } else if (contentLower.includes('story') || contentLower.includes('tale') || contentLower.includes('narrative')) {
+    extractionMethod = 'narrative-sequence';
+  } else {
+    extractionMethod = 'thematic-unit';
+  }
+
+  // Generate verse range information
+  let verseRange;
+  if (logicalUnitType === 'Epic' || logicalUnitType === 'Philosophical') {
+    // Try to extract verse information from technical reference or generate reasonable range
+    const verseCount = Math.max(1, Math.min(8, Math.floor(content.length / 100))); // Estimate based on content length
+    const baseVerse = Math.floor(Math.random() * 50) + 1;
+
+    if (verseCount === 1) {
+      verseRange = {
+        start: `${baseVerse}`,
+        end: `${baseVerse}`,
+        count: 1
+      };
+    } else {
+      verseRange = {
+        start: `${baseVerse}`,
+        end: `${baseVerse + verseCount - 1}`,
+        count: verseCount
+      };
+    }
+  }
+
+  return {
+    logicalUnitType,
+    extractionMethod,
+    verseRange
+  };
 }

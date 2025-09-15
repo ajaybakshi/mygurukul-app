@@ -1,41 +1,10 @@
 import { Storage } from '@google-cloud/storage';
-import { gretilTextTypeClassifier, GretilTextTypeClassifier } from './gretilTextTypeClassifier';
-import { GretilTextType, LEGACY_TYPE_MAPPING, LegacyTextType } from '../../types/gretil-types';
-import { epicLogicalUnitExtractor, EpicLogicalUnitExtractor } from './extractors/epicLogicalUnitExtractor';
-import { philosophicalLogicalUnitExtractor, PhilosophicalLogicalUnitExtractor } from './extractors/philosophicalLogicalUnitExtractor';
-import { dialogueLogicalUnitExtractor, DialogueLogicalUnitExtractor } from './extractors/dialogueLogicalUnitExtractor';
-import { hymnalLogicalUnitExtractor, HymnalLogicalUnitExtractor } from './extractors/hymnalLogicalUnitExtractor';
-import { narrativeLogicalUnitExtractor, NarrativeLogicalUnitExtractor } from './extractors/narrativeLogicalUnitExtractor';
 
 interface GretilWisdomSource {
   folderName: string;
   displayName: string;
   category: string;
-  textType: LegacyTextType; // Keep legacy for backward compatibility
-  enhancedTextType?: GretilTextType; // New enhanced classification
-}
-
-interface LogicalUnit {
-  sanskrit: string;
-  reference: string;
-  teachingType?: 'commentary' | 'dialogue' | 'teaching' | 'explanation' | 'narrative';
-  speaker?: string;
-  addressee?: string;
-  verses?: string[];
-  verseRange?: {
-    start: string;
-    end: string;
-    count: number;
-  };
-  context?: {
-    book?: number;
-    chapter?: number;
-    section?: string;
-    philosophicalConcept?: string;
-    narrativeType?: string;
-    emotionalTone?: string;
-  };
-  unitType?: 'epic' | 'philosophical' | 'dialogue' | 'hymnal' | 'narrative';
+  textType: 'purana' | 'gita' | 'upanishad' | 'veda' | 'epic' | 'other';
 }
 
 interface GretilMetadata {
@@ -54,17 +23,9 @@ interface GretilMetadata {
   chapterInfo?: ChapterReference;
   verseNumber?: VerseReference;
   citationFormat?: string;
-  textType?: LegacyTextType; // Legacy type for backward compatibility
-  enhancedTextType?: GretilTextType; // New enhanced classification
-  textTypeConfidence?: string; // Classification confidence level
+  textType?: 'veda' | 'upanishad' | 'purana' | 'epic' | 'gita' | 'other';
   timePeriod?: string;
   hasCommentary?: boolean;
-  // Logical unit support
-  philosophicalUnit?: any;
-  epicUnit?: any;
-  dialogueUnit?: any;
-  hymnalUnit?: any;
-  narrativeUnit?: any;
 }
 
 interface ChapterReference {
@@ -149,75 +110,66 @@ class GretilWisdomService {
 
   private categorizeGretilText(fileName: string): GretilWisdomSource | null {
     const name = fileName.replace('.txt', '').toLowerCase();
-
-    // Use enhanced classifier for better categorization (will be populated with content later)
-    // For now, use filename-based classification with legacy fallback
-
-    // Bhagavad Gita - handle "Bhagvad_Gita.txt" or similar variants (highest priority)
-    if (name.includes('bhagvad') || name.includes('gita') || name.includes('bhagavad') || name === 'bhagvad_gita') {
-      return {
-        folderName: fileName,
-        displayName: 'Bhagavad Gita',
-        category: 'Philosophical Texts',
-        textType: 'gita', // Preserve legacy 'gita' type for backward compatibility
-        enhancedTextType: GretilTextType.PHILOSOPHICAL
-      };
-    }
-
-    // Epics - handle "Ramayana.txt", "Mahabharata.txt" etc.
-    if (name.includes('ramayana') || name.includes('rama') || name.includes('mahabharata')) {
-      const displayName = name.includes('ramayana') ? 'Ramayana' :
-                         name.includes('mahabharata') ? 'Mahabharata' :
-                         this.formatDisplayName(fileName);
-      return {
-        folderName: fileName,
-        displayName: displayName,
-        category: 'Epics',
-        textType: 'epic',
-        enhancedTextType: GretilTextType.EPIC
-      };
-    }
-
-    // Vedas - handle various Veda file patterns
-    if (name.includes('veda') || name.includes('rg_veda') || name.includes('khila') || name.includes('rig_veda')) {
-      return {
-        folderName: fileName,
-        displayName: this.formatDisplayName(fileName),
-        category: 'Vedas',
-        textType: 'veda',
-        enhancedTextType: GretilTextType.HYMNAL
-      };
-    }
-
-    // Upanishads - handle "Chandogya_Upanishad.txt" etc.
-    if (name.includes('upanishad') || name === 'chandogya_upanishad') {
-      return {
-        folderName: fileName,
-        displayName: this.formatDisplayName(fileName),
-        category: 'Upanishads',
-        textType: 'upanishad',
-        enhancedTextType: GretilTextType.PHILOSOPHICAL
-      };
-    }
-
+    
     // Purana texts - handle clean filenames like "Agni_Purana.txt"
     if (name.includes('purana') || name === 'agni_purana') {
       return {
         folderName: fileName,
         displayName: this.formatDisplayName(fileName),
         category: 'Puranas',
-        textType: 'purana',
-        enhancedTextType: GretilTextType.NARRATIVE
+        textType: 'purana'
       };
     }
-
-    // Default categorization for other texts - will be enhanced with content analysis later
+    
+    // Bhagavad Gita - handle "Bhagvad_Gita.txt" or similar variants
+    if (name.includes('bhagvad') || name.includes('gita') || name.includes('bhagavad') || name === 'bhagvad_gita') {
+      return {
+        folderName: fileName,
+        displayName: 'Bhagavad Gita',
+        category: 'Philosophical Texts',
+        textType: 'gita'
+      };
+    }
+    
+    // Upanishads - handle "Chandogya_Upanishad.txt" etc.
+    if (name.includes('upanishad') || name === 'chandogya_upanishad') {
+      return {
+        folderName: fileName,
+        displayName: this.formatDisplayName(fileName),
+        category: 'Upanishads',
+        textType: 'upanishad'
+      };
+    }
+    
+    // Vedas - handle various Veda file patterns
+    if (name.includes('veda') || name.includes('rg_veda') || name.includes('khila') || name.includes('rig_veda')) {
+      return {
+        folderName: fileName,
+        displayName: this.formatDisplayName(fileName),
+        category: 'Vedas',
+        textType: 'veda'
+      };
+    }
+    
+    // Epics - handle "Ramayana.txt", "Mahabharata.txt" etc.
+    if (name.includes('ramayana') || name.includes('rama') || name.includes('mahabharata')) {
+      const displayName = name.includes('ramayana') ? 'Ramayana' : 
+                         name.includes('mahabharata') ? 'Mahabharata' : 
+                         this.formatDisplayName(fileName);
+      return {
+        folderName: fileName,
+        displayName: displayName,
+        category: 'Epics',
+        textType: 'epic'
+      };
+    }
+    
+    // Default categorization for other texts
     return {
       folderName: fileName,
       displayName: this.formatDisplayName(fileName),
       category: 'Sacred Texts',
-      textType: 'other', // Use 'other' instead of 'purana' for unknown texts
-      enhancedTextType: GretilTextType.NARRATIVE
+      textType: 'purana'
     };
   }
 
@@ -257,80 +209,9 @@ class GretilWisdomService {
       this.currentFileName = sourceName; // Set current filename for classification
       const metadata = this.parseGretilHeader(textContent, sourceName);
 
-      // Check if this is an epic text that should use logical unit extraction
-      const textClassification = gretilTextTypeClassifier.classifyText(sourceName, textContent);
-      console.log(`📊 Text classified as: ${textClassification.textType} (${textClassification.confidence})`);
-
-      let result: ExtractedWisdom | null = null;
-
-      // Get source categorization for fallback display names
-      const source = this.categorizeGretilText(sourceName);
-
-      // Use specialized extractors for different text types
-      if (textClassification.textType === GretilTextType.EPIC && (textClassification.confidence === 'HIGH' || textClassification.confidence === 'MEDIUM')) {
-        console.log(`🎭 Using EPIC logical unit extractor for ${sourceName} (${textClassification.confidence} confidence)`);
-        const epicUnit = epicLogicalUnitExtractor.extractLogicalUnit(textContent, sourceName);
-        if (epicUnit) {
-          result = epicLogicalUnitExtractor.toExtractedWisdom(epicUnit, metadata?.title || source?.displayName || sourceName);
-          console.log(`✅ EPIC extraction successful: ${epicUnit.verseRange.count} verses, ${epicUnit.narrativeType} type`);
-        } else {
-          console.log(`⚠️ EPIC extraction failed, falling back to standard extraction`);
-        }
-      }
-
-      // Use PHILOSOPHICAL extractor for Upanishads and other philosophical texts
-      if (textClassification.textType === GretilTextType.PHILOSOPHICAL && (textClassification.confidence === 'HIGH' || textClassification.confidence === 'MEDIUM')) {
-        console.log(`📚 Using PHILOSOPHICAL logical unit extractor for ${sourceName} (${textClassification.confidence} confidence)`);
-        const philosophicalUnit = philosophicalLogicalUnitExtractor.extractLogicalUnit(textContent, sourceName);
-        if (philosophicalUnit) {
-          result = philosophicalLogicalUnitExtractor.toExtractedWisdom(philosophicalUnit, metadata?.title || source?.displayName || sourceName);
-          console.log(`✅ PHILOSOPHICAL extraction successful: ${philosophicalUnit.verseRange.count} verses, ${philosophicalUnit.teachingType} type`);
-        } else {
-          console.log(`⚠️ PHILOSOPHICAL extraction failed, falling back to standard extraction`);
-        }
-      }
-
-      // Use DIALOGUE extractor for Bhagavad Gita and other dialogue texts
-      if (textClassification.textType === GretilTextType.DIALOGUE && (textClassification.confidence === 'HIGH' || textClassification.confidence === 'MEDIUM')) {
-        console.log(`💬 Using DIALOGUE logical unit extractor for ${sourceName} (${textClassification.confidence} confidence)`);
-        const dialogueUnit = dialogueLogicalUnitExtractor.extractLogicalUnit(textContent, sourceName);
-        if (dialogueUnit) {
-          result = dialogueLogicalUnitExtractor.toExtractedWisdom(dialogueUnit, metadata?.title || source?.displayName || sourceName);
-          console.log(`✅ DIALOGUE extraction successful: ${dialogueUnit.verseRange.count} verses, ${dialogueUnit.dialogueType} type`);
-        } else {
-          console.log(`⚠️ DIALOGUE extraction failed, falling back to standard extraction`);
-        }
-      }
-
-      // Use HYMNAL extractor for Vedic texts
-      if (textClassification.textType === GretilTextType.HYMNAL && (textClassification.confidence === 'HIGH' || textClassification.confidence === 'MEDIUM')) {
-        console.log(`🎵 Using HYMNAL logical unit extractor for ${sourceName} (${textClassification.confidence} confidence)`);
-        const hymnalUnit = hymnalLogicalUnitExtractor.extractLogicalUnit(textContent, sourceName);
-        if (hymnalUnit) {
-          result = hymnalLogicalUnitExtractor.toExtractedWisdom(hymnalUnit, metadata?.title || source?.displayName || sourceName);
-          console.log(`✅ HYMNAL extraction successful: ${hymnalUnit.verseRange.count} verses, ${hymnalUnit.hymnType} type`);
-        } else {
-          console.log(`⚠️ HYMNAL extraction failed, falling back to standard extraction`);
-        }
-      }
-
-      // Use NARRATIVE extractor for Puranic and mythological texts
-      if (textClassification.textType === GretilTextType.NARRATIVE && (textClassification.confidence === 'HIGH' || textClassification.confidence === 'MEDIUM')) {
-        console.log(`📖 Using NARRATIVE logical unit extractor for ${sourceName} (${textClassification.confidence} confidence)`);
-        const narrativeUnit = narrativeLogicalUnitExtractor.extractLogicalUnit(textContent, sourceName);
-        if (narrativeUnit) {
-          result = narrativeLogicalUnitExtractor.toExtractedWisdom(narrativeUnit, metadata?.title || source?.displayName || sourceName);
-          console.log(`✅ NARRATIVE extraction successful: ${narrativeUnit.verseRange.count} verses, ${narrativeUnit.narrativeType} type`);
-        } else {
-          console.log(`⚠️ NARRATIVE extraction failed, falling back to standard extraction`);
-        }
-      }
-
-      // Fall back to standard extraction if specialized extraction didn't work
-      if (!result) {
-        console.log(`🎯 Using standard extractRandomStanzaWithMetadata()...`);
-        result = this.extractRandomStanzaWithMetadata(textContent, sourceName, metadata);
-      }
+      // Extract random stanza with enhanced metadata support
+      console.log(`🎯 CALLING extractRandomStanzaWithMetadata()...`);
+      const result = this.extractRandomStanzaWithMetadata(textContent, sourceName, metadata);
       console.log(`📋 extractRandomStanzaWithMetadata() RESULT:`, result ? 'SUCCESS' : 'NULL');
 
       if (result) {
@@ -360,7 +241,6 @@ class GretilWisdomService {
   // ============================================================================
   // UNIVERSAL GRETIL HEADER PARSER AND METADATA EXTRACTOR
   // ============================================================================
-
 
   private parseGretilHeader(content: string, fileName?: string): GretilMetadata | null {
     try {
@@ -413,14 +293,9 @@ class GretilWisdomService {
       });
 
       // Initialize metadata with required title field
-      const basicTextType = this.classifyTextType(content);
-      const enhancedClassification = gretilTextTypeClassifier.classifyText(fileName || 'unknown.txt', content);
-
       const metadata: Partial<GretilMetadata> = {
         citationFormat: this.detectCitationFormat(content),
-        textType: basicTextType,
-        enhancedTextType: enhancedClassification.textType,
-        textTypeConfidence: enhancedClassification.confidence,
+        textType: this.classifyTextType(content),
         hasCommentary: this.detectCommentary(content)
       };
 
@@ -792,11 +667,6 @@ class GretilWisdomService {
     try {
       // Skip header section and find text content
       const lines = content.split('\n');
-
-      // Debug: Check what lines contain text markers
-      const textMarkers = lines.filter(line => line.includes('# Text') || line.includes('## Text'));
-      console.log(`🔍 DEBUG: Found text markers:`, textMarkers);
-
       const textStartIndex = Math.max(
         lines.findIndex(line => line.includes('# Text')),
         lines.findIndex(line => line.includes('## Text')),
@@ -804,7 +674,6 @@ class GretilWisdomService {
       ) + 1;
 
       console.log(`📍 Text start index: ${textStartIndex}`);
-      console.log(`📄 Lines around text marker:`, lines.slice(Math.max(0, textStartIndex - 5), Math.min(lines.length, textStartIndex + 10)));
 
       if (textStartIndex <= 0) {
         console.log(`❌ No text section found in ${fileName}`);
@@ -813,7 +682,6 @@ class GretilWisdomService {
 
       const textLines = lines.slice(textStartIndex);
       console.log(`📖 Text lines to process: ${textLines.length}`);
-      console.log(`📝 First 10 text lines:`, textLines.slice(0, 10));
 
       // Find verses/stanzas with references or meaningful Sanskrit content
       const verses: { text: string; reference: string; index: number; verseRef?: VerseReference }[] = [];
@@ -832,8 +700,7 @@ class GretilWisdomService {
           const verseReference = this.extractVerseReference(line);
           const verseText = this.extractVerseText(line);
 
-          // CRITICAL: Only accept clean, digestible content (2-3 verses max)
-          if (verseText && verseText.length > 15 && verseText.length < 300) {
+          if (verseText && verseText.length > 15) {
             let reference = verseReference ?
               `${metadata?.title || fileName} - ${verseReference.fullReference}` :
               `Line ${i + textStartIndex}`;
@@ -919,7 +786,7 @@ class GretilWisdomService {
 
   private extractRandomStanza(content: string, fileName: string): ExtractedWisdom | null {
     console.log(`🔍 DEBUG extractRandomStanza for ${fileName}:`);
-
+    
     // Skip header section and find text content
     const lines = content.split('\n');
     console.log(`📄 Total lines in file: ${lines.length}`);
@@ -943,36 +810,36 @@ class GretilWisdomService {
       versesFound: 0,
       verses: []
     };
-
+    
     console.log(`📍 Text start index: ${textStartIndex}`);
     console.log(`📝 First 10 lines of file:`, lines.slice(0, 10));
-
+    
     debugInfo.textStartIndex = textStartIndex;
-
+    
     if (textStartIndex <= 0) {
       console.log(`No text section found in ${fileName}`);
       return this.extractMeaningfulParagraph(lines, fileName);
     }
-
+    
     const textLines = lines.slice(textStartIndex);
     console.log(`📖 Text lines to process: ${textLines.length}`);
     console.log(`📝 First 5 text lines:`, textLines.slice(0, 5));
-
+    
     // Find verses/stanzas with references or meaningful Sanskrit content
     const verses: { text: string; reference: string; index: number }[] = [];
-
+    
     for (let i = 0; i < textLines.length; i++) {
       const line = textLines[i].trim();
-
+      
       // Skip empty lines, comments, and headers
       if (!line || line.startsWith('#') || line.startsWith('//') || line.startsWith('--')) continue;
-
+      
       // Check for Sanskrit content (contains Devanagari-related characters or long Sanskrit text)
       const hasSanskrit = this.hasSanskritContent(line);
       if (hasSanskrit) {
         const reference = this.extractReference(line);
         const verseText = this.extractVerseText(line);
-
+        
         // Only log first few lines to avoid spam
         if (i < 5 || reference) {
           console.log(`🔍 Line ${i + textStartIndex}:`, {
@@ -983,7 +850,7 @@ class GretilWisdomService {
             verseTextLength: verseText?.length
           });
         }
-
+        
         if (verseText && verseText.length > 15) {
           verses.push({
             text: verseText,
@@ -993,7 +860,7 @@ class GretilWisdomService {
         }
       }
     }
-
+    
     console.log(`Found ${verses.length} verses in ${fileName}`);
 
     // Write debug info to file
@@ -1005,16 +872,16 @@ class GretilWisdomService {
     } catch (e) {
       console.log('Debug file write error:', (e as Error).message);
     }
-
+    
     if (verses.length === 0) {
       console.log(`No verses found, using fallback for ${fileName}`);
       return this.extractMeaningfulParagraph(textLines, fileName, undefined);
     }
-
+    
     // Select random verse
     const randomVerse = verses[Math.floor(Math.random() * verses.length)];
     const source = this.categorizeGretilText(fileName);
-
+    
     return {
       sanskrit: randomVerse.text,
       reference: randomVerse.reference,
@@ -1131,7 +998,7 @@ class GretilWisdomService {
 
   private extractVerseText(line: string): string | null {
     // Remove reference and extract Sanskrit text
-    let cleanLine = line
+    const cleanLine = line
       .replace(/\/\/.*$/, '')  // Remove end comments
       .replace(/\|\|.*$/, '')  // Remove verse endings
       .replace(/ap_\d+\.\d+[a-z]*\/?\s*/, '')
@@ -1141,18 +1008,6 @@ class GretilWisdomService {
       .replace(/RvKh_\d+,\d+\.\d+\.\d+\s*/, '')
       .replace(/Ram_\d+,\d+\.\d+\s*/, '')
       .trim();
-    
-    // CRITICAL: Limit content to 2-3 verses maximum for clean user experience
-    // Split by common verse endings and take only first 2-3 parts
-    const verseParts = cleanLine.split(/[|]{2,}|\s{3,}/);
-    if (verseParts.length > 3) {
-      cleanLine = verseParts.slice(0, 3).join(' || ');
-    }
-    
-    // Additional length limit for very long content
-    if (cleanLine.length > 500) {
-      cleanLine = cleanLine.substring(0, 500) + '...';
-    }
     
     return cleanLine.length > 10 ? cleanLine : null;
   }

@@ -11,6 +11,14 @@ interface WisdomData {
     characters?: string;
     location?: string;
     theme?: string;
+    technicalReference?: string;
+    logicalUnitType?: 'Epic' | 'Philosophical' | 'Dialogue' | 'Hymnal' | 'Narrative'; // Logical unit type
+    extractionMethod?: 'narrative-sequence' | 'commentary-unit' | 'dialogue-exchange' | 'verse-unit' | 'thematic-unit'; // How it was extracted
+    verseRange?: {
+      start: string;
+      end: string;
+      count: number;
+    };
   };
   wisdom: string;
   context: string;
