@@ -182,13 +182,33 @@ class GretilWisdomService {
   
 
   private extractRandomStanza(content: string, fileName: string): ExtractedWisdom | null {
+    console.log(`🔍 DEBUG extractRandomStanza for ${fileName}:`);
+    
+    // Write debug info to file
+    const fs = require('fs');
+    const debugInfo = {
+      fileName,
+      timestamp: new Date().toISOString(),
+      totalLines: content.split('\n').length,
+      firstLines: content.split('\n').slice(0, 15),
+      hasReference: false,
+      patterns: []
+    };
+    
     // Skip header section and find text content
     const lines = content.split('\n');
+    console.log(`📄 Total lines in file: ${lines.length}`);
+    
     const textStartIndex = Math.max(
       lines.findIndex(line => line.includes('# Text')),
       lines.findIndex(line => line.includes('## Text')),
       lines.findIndex(line => line.trim() === 'oṃ' || line.includes('oṃ '))
     ) + 1;
+    
+    console.log(`📍 Text start index: ${textStartIndex}`);
+    console.log(`📝 First 10 lines of file:`, lines.slice(0, 10));
+    
+    debugInfo.textStartIndex = textStartIndex;
     
     if (textStartIndex <= 0) {
       console.log(`No text section found in ${fileName}`);
@@ -196,6 +216,8 @@ class GretilWisdomService {
     }
     
     const textLines = lines.slice(textStartIndex);
+    console.log(`📖 Text lines to process: ${textLines.length}`);
+    console.log(`📝 First 5 text lines:`, textLines.slice(0, 5));
     
     // Find verses/stanzas with references or meaningful Sanskrit content
     const verses: { text: string; reference: string; index: number }[] = [];
@@ -207,14 +229,26 @@ class GretilWisdomService {
       if (!line || line.startsWith('#') || line.startsWith('//') || line.startsWith('--')) continue;
       
       // Check for Sanskrit content (contains Devanagari-related characters or long Sanskrit text)
-      if (this.hasSanskritContent(line)) {
-        const reference = this.extractReference(line) || `Line ${i + textStartIndex}`;
+      const hasSanskrit = this.hasSanskritContent(line);
+      if (hasSanskrit) {
+        const reference = this.extractReference(line);
         const verseText = this.extractVerseText(line);
+        
+        // Only log first few lines to avoid spam
+        if (i < 5 || reference) {
+          console.log(`🔍 Line ${i + textStartIndex}:`, {
+            original: line.substring(0, 100) + (line.length > 100 ? '...' : ''),
+            hasSanskrit,
+            reference,
+            verseText: verseText?.substring(0, 50) + (verseText && verseText.length > 50 ? '...' : ''),
+            verseTextLength: verseText?.length
+          });
+        }
         
         if (verseText && verseText.length > 15) {
           verses.push({
             text: verseText,
-            reference: reference,
+            reference: reference || `Line ${i + textStartIndex}`,
             index: i
           });
         }
@@ -222,6 +256,16 @@ class GretilWisdomService {
     }
     
     console.log(`Found ${verses.length} verses in ${fileName}`);
+    
+    // Write debug info to file
+    debugInfo.versesFound = verses.length;
+    debugInfo.verses = verses.slice(0, 3); // First 3 verses
+    
+    try {
+      require('fs').writeFileSync(`./debug-${fileName.replace(/[^a-zA-Z0-9]/g, '_')}.json`, JSON.stringify(debugInfo, null, 2));
+    } catch (e) {
+      console.log('Debug file write error:', e.message);
+    }
     
     if (verses.length === 0) {
       console.log(`No verses found, using fallback for ${fileName}`);
@@ -249,7 +293,19 @@ class GretilWisdomService {
       /.{30,}/  // Lines longer than 30 characters (likely to be meaningful content)
     ];
     
-    return sanskritPatterns.some(pattern => pattern.test(line));
+    const result = sanskritPatterns.some(pattern => pattern.test(line));
+    
+    // Debug: log pattern matching for problematic lines
+    if (line.length > 20) {
+      console.log(`🔍 hasSanskritContent for "${line.substring(0, 50)}...":`, {
+        hasIAST: /[āīūṛḷēōṃḥśṣṇṭḍṅñ]/.test(line),
+        hasSanskritWords: /\b(om|oṃ|atha|iti|ca|vai|hi|tu|api|eva|na|te|sa|tad|yad|kim)\b/i.test(line),
+        isLongEnough: /.{30,}/.test(line),
+        result: result
+      });
+    }
+    
+    return result;
   }
   
   private extractMeaningfulParagraph(lines: string[], fileName: string): ExtractedWisdom | null {
@@ -303,9 +359,29 @@ class GretilWisdomService {
       /Ram_\d+,\d+\.\d+/
     ];
     
+    // Debug: Check if line contains any potential reference-like patterns
+    const hasNumberPattern = /\d+[\.,]\d+/.test(line);
+    const hasUnderscorePattern = /[a-z]+_\d+/.test(line);
+    
     for (const pattern of referencePatterns) {
       const match = line.match(pattern);
-      if (match) return match[0];
+      if (match) {
+        console.log(`📋 ✅ Found reference pattern:`, { 
+          pattern: pattern.source, 
+          match: match[0], 
+          line: line.substring(0, 80) + '...'
+        });
+        return match[0];
+      }
+    }
+    
+    // Only log when there might be a pattern we're missing
+    if (hasNumberPattern || hasUnderscorePattern) {
+      console.log(`📋 ❌ No pattern matched but found potential reference in: "${line.substring(0, 80)}..."`, {
+        hasNumberPattern,
+        hasUnderscorePattern,
+        availablePatterns: referencePatterns.map(p => p.source)
+      });
     }
     
     return null;

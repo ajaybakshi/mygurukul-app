@@ -3,17 +3,35 @@ import { Storage } from '@google-cloud/storage';
 import { crossCorpusWisdomService } from '../../../lib/services/crossCorpusWisdomService';
 import { gretilWisdomService } from '../../../lib/services/gretilWisdomService';
 
+interface EnhancedRawTextAnnotation {
+  // Primary Information
+  textName: string;           // "Bhagavad Gita", "Brahmanda Purana"
+  tradition: string;          // "Hindu Philosophy", "Vedic Cosmology"
+  chapter: string;            // "Chapter 2: The Yoga of Knowledge"
+  section: string;            // "Arjuna's Dilemma", "Creation of Universe"
+  
+  // Context Information  
+  spiritualTheme: string;     // "Dharma and Duty", "Divine Love"
+  characters?: string[];      // ["Krishna", "Arjuna"]
+  location?: string;          // "Kurukshetra Battlefield", "Cosmic Realm"
+  
+  // Cultural Context
+  historicalPeriod?: string;  // "Classical Period", "Vedic Era"
+  literaryGenre: string;      // "Philosophical Dialogue", "Cosmological Hymn"
+  
+  // Reference Information (for scholars)
+  technicalReference?: string; // "BG 2.47", "ap_1.001ab"
+  estimatedAge?: string;       // "2000+ years", "3000+ years"
+  
+  // Legacy fields for backward compatibility
+  theme?: string;
+  source?: string;
+}
+
 interface TodaysWisdom {
   // Raw sacred text (what seeker reads first)
   rawText: string;
-  rawTextAnnotation: {
-    chapter: string;
-    section: string;
-    source: string;
-    characters?: string;
-    location?: string;
-    theme?: string;
-  };
+  rawTextAnnotation: EnhancedRawTextAnnotation;
   
   // AI enhanced interpretation (Guru's wisdom)
   wisdom: string;
@@ -233,19 +251,18 @@ async function selectTodaysWisdomFromFiles(
       console.log('AI enhancement error, using fallback');
     }
     
-    const chapterInfo = extractChapterInfo(selectedSection.source, extractedContent.metadata);
+    // Use enhanced metadata formatting
+    const enhancedMetadata = formatWisdomMetadata(
+      sourceName,
+      selectedSection.source,
+      extractedContent.metadata,
+      selectedSection.dimensions
+    );
 
     return {
       // Raw sacred text (what seeker reads first)
       rawText: extractedContent.narrative,
-      rawTextAnnotation: {
-        chapter: chapterInfo.chapter,
-        section: chapterInfo.section,
-        source: selectedSection.source,
-        characters: selectedSection.dimensions.character,
-        location: selectedSection.dimensions.location,
-        theme: selectedSection.dimensions.theme
-      },
+      rawTextAnnotation: enhancedMetadata,
       
       // AI enhanced interpretation (Guru's wisdom)
       wisdom: finalWisdom,
@@ -264,12 +281,19 @@ async function selectTodaysWisdomFromFiles(
     return {
       rawText: `The sacred texts of ${sourceName} contain infinite wisdom. Each verse, each story carries profound meaning for those who seek truth and righteousness.`,
       rawTextAnnotation: {
-        chapter: 'Unknown Chapter',
-        section: 'Unknown Section',
-        source: 'Sacred Texts',
-        characters: 'Unknown',
+        textName: sourceName,
+        tradition: 'Sacred Literature',
+        chapter: 'Sacred Chapter',
+        section: 'Sacred Section',
+        spiritualTheme: 'Divine Wisdom',
+        characters: ['Sacred Beings'],
         location: 'Sacred Realm',
-        theme: 'wisdom'
+        literaryGenre: 'Spiritual Teaching',
+        historicalPeriod: 'Ancient Tradition',
+        estimatedAge: 'Timeless',
+        // Legacy compatibility
+        theme: 'wisdom',
+        source: 'Sacred Texts'
       },
       wisdom: `The sacred texts of ${sourceName} contain infinite wisdom. Each verse, each story carries profound meaning for those who seek truth and righteousness.`,
       context: `Daily wisdom from ${sourceName}`,
@@ -533,6 +557,1108 @@ function selectMultiDimensionalWisdom(sections: EnhancedSection[], userHistory: 
   return scoredSections[0].section;
 }
 
+// Comprehensive spiritual text mappings
+const SPIRITUAL_TEXT_MAPPINGS = {
+  // Sanskrit/Gretil Sources
+  gretil: {
+    'Agni_Purana': {
+      textName: 'Agni Purana',
+      tradition: 'Hindu Cosmology & Sacred Rituals',
+      historicalPeriod: 'Classical Period (8th-11th century CE)',
+      literaryGenre: 'Cosmological & Ritual Compendium',
+      estimatedAge: '1000+ years',
+      themes: {
+        creation: 'Divine Fire and Cosmic Creation',
+        rituals: 'Sacred Fire Ceremonies',
+        cosmology: 'Universal Principles and Divine Order'
+      }
+    },
+    'Bhagvad_Gita': {
+      textName: 'Bhagavad Gita',
+      tradition: 'Hindu Philosophy & Spiritual Guidance',
+      historicalPeriod: 'Classical Period (5th-2nd century BCE)',
+      literaryGenre: 'Philosophical Dialogue',
+      estimatedAge: '2000+ years',
+      themes: {
+        dharma: 'Righteous Action and Duty',
+        yoga: 'Paths to Self-Realization',
+        devotion: 'Divine Love and Surrender'
+      }
+    },
+    'Chandogya_Upanishad': {
+      textName: 'Chandogya Upanishad',
+      tradition: 'Vedic Philosophy & Mysticism',
+      historicalPeriod: 'Vedic Period (8th-6th century BCE)',
+      literaryGenre: 'Mystical Teaching Dialogues',
+      estimatedAge: '2500+ years',
+      themes: {
+        brahman: 'The Ultimate Reality',
+        meditation: 'Inner Sound and Sacred Syllables',
+        self: 'True Nature of the Soul'
+      }
+    },
+    'NadaBindu_Upanishad': {
+      textName: 'NadaBindu Upanishad',
+      tradition: 'Vedic Philosophy & Yoga',
+      historicalPeriod: 'Medieval Period (10th-15th century CE)',
+      literaryGenre: 'Yogic Mystical Teachings',
+      estimatedAge: '800+ years',
+      themes: {
+        nada: 'Inner Sound and Divine Vibration',
+        bindu: 'Point of Cosmic Consciousness',
+        yoga: 'Union through Sound Meditation',
+        meditation: 'Transcendental Sound Practice'
+      }
+    },
+    'Nada Bindu Upanishad': {  // This matches the displayName format
+      textName: 'NadaBindu Upanishad',
+      tradition: 'Vedic Philosophy & Yoga',
+      historicalPeriod: 'Medieval Period (10th-15th century CE)',
+      literaryGenre: 'Yogic Mystical Teachings',
+      estimatedAge: '800+ years',
+      themes: {
+        nada: 'Inner Sound and Divine Vibration',
+        bindu: 'Point of Cosmic Consciousness',
+        yoga: 'Union through Sound Meditation',
+        meditation: 'Transcendental Sound Practice'
+      }
+    },
+    'Mandukya_Upanishad': {
+      textName: 'Mandukya Upanishad',
+      tradition: 'Vedic Philosophy & Consciousness Studies',
+      historicalPeriod: 'Vedic Period (8th-6th century BCE)',
+      literaryGenre: 'Mystical Philosophy',
+      estimatedAge: '2500+ years',
+      themes: {
+        om: 'Sacred Sound AUM and Consciousness',
+        consciousness: 'Four States of Awareness',
+        reality: 'Ultimate Reality and Self-Knowledge'
+      }
+    },
+    'Mandukya Upanishad': {
+      textName: 'Mandukya Upanishad',
+      tradition: 'Vedic Philosophy & Consciousness Studies',
+      historicalPeriod: 'Vedic Period (8th-6th century BCE)',
+      literaryGenre: 'Mystical Philosophy',
+      estimatedAge: '2500+ years',
+      themes: {
+        om: 'Sacred Sound AUM and Consciousness',
+        consciousness: 'Four States of Awareness',
+        reality: 'Ultimate Reality and Self-Knowledge'
+      }
+    },
+    
+    // === REMAINING UPANISHADS ===
+    'Katha_Upanishad': {
+      textName: 'Katha Upanishad',
+      tradition: 'Vedic Philosophy & Death Mysticism',
+      historicalPeriod: 'Vedic Period (6th-4th century BCE)',
+      literaryGenre: 'Allegorical Teaching Story',
+      estimatedAge: '2400+ years',
+      themes: {
+        death: 'Transcending Death and Immortality',
+        chariot: 'Allegory of Self-Control',
+        yoga: 'Path to Liberation'
+      }
+    },
+    'Katha Upanishad': {
+      textName: 'Katha Upanishad',
+      tradition: 'Vedic Philosophy & Death Mysticism',
+      historicalPeriod: 'Vedic Period (6th-4th century BCE)',
+      literaryGenre: 'Allegorical Teaching Story',
+      estimatedAge: '2400+ years',
+      themes: {
+        death: 'Transcending Death and Immortality',
+        chariot: 'Allegory of Self-Control',
+        yoga: 'Path to Liberation'
+      }
+    },
+    'Isha_Upanishad': {
+      textName: 'Isha Upanishad',
+      tradition: 'Vedic Philosophy & Renunciation',
+      historicalPeriod: 'Vedic Period (8th-6th century BCE)',
+      literaryGenre: 'Poetic Mystical Verses',
+      estimatedAge: '2500+ years',
+      themes: {
+        renunciation: 'True Renunciation and Enjoyment',
+        unity: 'All-Pervading Divine Presence',
+        action: 'Desireless Action'
+      }
+    },
+    'Isha Upanishad': {
+      textName: 'Isha Upanishad',
+      tradition: 'Vedic Philosophy & Renunciation',
+      historicalPeriod: 'Vedic Period (8th-6th century BCE)',
+      literaryGenre: 'Poetic Mystical Verses',
+      estimatedAge: '2500+ years',
+      themes: {
+        renunciation: 'True Renunciation and Enjoyment',
+        unity: 'All-Pervading Divine Presence',
+        action: 'Desireless Action'
+      }
+    },
+    'Brihadaranyaka_Upanishad': {
+      textName: 'Brihadaranyaka Upanishad',
+      tradition: 'Vedic Philosophy & Metaphysics',
+      historicalPeriod: 'Vedic Period (8th-7th century BCE)',
+      literaryGenre: 'Extensive Philosophical Treatise',
+      estimatedAge: '2700+ years',
+      themes: {
+        atman: 'The Great Self - Aham Brahmasmi',
+        creation: 'Cosmic Creation and Dissolution',
+        knowledge: 'Supreme Knowledge and Reality'
+      }
+    },
+    'Brihadaranyaka Upanishad': {
+      textName: 'Brihadaranyaka Upanishad',
+      tradition: 'Vedic Philosophy & Metaphysics',
+      historicalPeriod: 'Vedic Period (8th-7th century BCE)',
+      literaryGenre: 'Extensive Philosophical Treatise',
+      estimatedAge: '2700+ years',
+      themes: {
+        atman: 'The Great Self - Aham Brahmasmi',
+        creation: 'Cosmic Creation and Dissolution',
+        knowledge: 'Supreme Knowledge and Reality'
+      }
+    },
+    'Taittiriya_Upanishad': {
+      textName: 'Taittiriya Upanishad',
+      tradition: 'Vedic Philosophy & Meditation',
+      historicalPeriod: 'Vedic Period (7th-6th century BCE)',
+      literaryGenre: 'Systematic Spiritual Teaching',
+      estimatedAge: '2600+ years',
+      themes: {
+        koshas: 'Five Sheaths of Existence',
+        bliss: 'Ananda - Divine Bliss as Reality',
+        meditation: 'Progressive Spiritual Realization'
+      }
+    },
+    'Taittiriya Upanishad': {
+      textName: 'Taittiriya Upanishad',
+      tradition: 'Vedic Philosophy & Meditation',
+      historicalPeriod: 'Vedic Period (7th-6th century BCE)',
+      literaryGenre: 'Systematic Spiritual Teaching',
+      estimatedAge: '2600+ years',
+      themes: {
+        koshas: 'Five Sheaths of Existence',
+        bliss: 'Ananda - Divine Bliss as Reality',
+        meditation: 'Progressive Spiritual Realization'
+      }
+    },
+    'Prashna_Upanishad': {
+      textName: 'Prashna Upanishad',
+      tradition: 'Vedic Philosophy & Cosmic Principles',
+      historicalPeriod: 'Vedic Period (6th-4th century BCE)',
+      literaryGenre: 'Question-Answer Teaching',
+      estimatedAge: '2400+ years',
+      themes: {
+        prana: 'Life Force and Vital Energy',
+        om: 'Sacred Syllable and Cosmic Sound',
+        meditation: 'Breath and Consciousness'
+      }
+    },
+    'Prashna Upanishad': {
+      textName: 'Prashna Upanishad',
+      tradition: 'Vedic Philosophy & Cosmic Principles',
+      historicalPeriod: 'Vedic Period (6th-4th century BCE)',
+      literaryGenre: 'Question-Answer Teaching',
+      estimatedAge: '2400+ years',
+      themes: {
+        prana: 'Life Force and Vital Energy',
+        om: 'Sacred Syllable and Cosmic Sound',
+        meditation: 'Breath and Consciousness'
+      }
+    },
+    'Mundaka_Upanishad': {
+      textName: 'Mundaka Upanishad',
+      tradition: 'Vedic Philosophy & Higher Knowledge',
+      historicalPeriod: 'Vedic Period (5th-4th century BCE)',
+      literaryGenre: 'Poetic Mystical Teaching',
+      estimatedAge: '2300+ years',
+      themes: {
+        knowledge: 'Higher vs Lower Knowledge',
+        bird: 'Two Birds on Tree Allegory',
+        fire: 'Sacred Fire of Wisdom'
+      }
+    },
+    'Mundaka Upanishad': {
+      textName: 'Mundaka Upanishad',
+      tradition: 'Vedic Philosophy & Higher Knowledge',
+      historicalPeriod: 'Vedic Period (5th-4th century BCE)',
+      literaryGenre: 'Poetic Mystical Teaching',
+      estimatedAge: '2300+ years',
+      themes: {
+        knowledge: 'Higher vs Lower Knowledge',
+        bird: 'Two Birds on Tree Allegory',
+        fire: 'Sacred Fire of Wisdom'
+      }
+    },
+    'Kaivalya_Upanishad': {
+      textName: 'Kaivalya Upanishad',
+      tradition: 'Vedic Philosophy & Liberation',
+      historicalPeriod: 'Medieval Period (8th-12th century CE)',
+      literaryGenre: 'Liberation Teaching',
+      estimatedAge: '1000+ years',
+      themes: {
+        liberation: 'Absolute Freedom - Kaivalya',
+        devotion: 'Devotion to Shiva',
+        realization: 'Self-Realization and Unity'
+      }
+    },
+    'Kaivalya Upanishad': {
+      textName: 'Kaivalya Upanishad',
+      tradition: 'Vedic Philosophy & Liberation',
+      historicalPeriod: 'Medieval Period (8th-12th century CE)',
+      literaryGenre: 'Liberation Teaching',
+      estimatedAge: '1000+ years',
+      themes: {
+        liberation: 'Absolute Freedom - Kaivalya',
+        devotion: 'Devotion to Shiva',
+        realization: 'Self-Realization and Unity'
+      }
+    },
+    'Shvetashvatara_Upanishad': {
+      textName: 'Shvetashvatara Upanishad',
+      tradition: 'Vedic Philosophy & Theistic Devotion',
+      historicalPeriod: 'Vedic Period (4th-2nd century BCE)',
+      literaryGenre: 'Devotional Philosophy',
+      estimatedAge: '2200+ years',
+      themes: {
+        devotion: 'Devotion to Supreme Ishvara',
+        yoga: 'Yoga and Divine Grace',
+        god: 'Personal God and Absolute Reality'
+      }
+    },
+    'Shvetashvatara Upanishad': {
+      textName: 'Shvetashvatara Upanishad',
+      tradition: 'Vedic Philosophy & Theistic Devotion',
+      historicalPeriod: 'Vedic Period (4th-2nd century BCE)',
+      literaryGenre: 'Devotional Philosophy',
+      estimatedAge: '2200+ years',
+      themes: {
+        devotion: 'Devotion to Supreme Ishvara',
+        yoga: 'Yoga and Divine Grace',
+        god: 'Personal God and Absolute Reality'
+      }
+    },
+
+    // === VEDAS & PRINCIPAL TEXTS ===
+    'Rigveda': {
+      textName: 'Rigveda',
+      tradition: 'Vedic Hymns & Ancient Wisdom',
+      historicalPeriod: 'Vedic Period (1500-1200 BCE)',
+      literaryGenre: 'Sacred Hymns & Prayers',
+      estimatedAge: '3500+ years',
+      themes: {
+        hymns: 'Sacred Hymns to Divine Forces',
+        fire: 'Agni - Sacred Fire Worship',
+        cosmos: 'Cosmic Order and Divine Truth'
+      }
+    },
+    'Rig Veda': {
+      textName: 'Rigveda',
+      tradition: 'Vedic Hymns & Ancient Wisdom',
+      historicalPeriod: 'Vedic Period (1500-1200 BCE)',
+      literaryGenre: 'Sacred Hymns & Prayers',
+      estimatedAge: '3500+ years',
+      themes: {
+        hymns: 'Sacred Hymns to Divine Forces',
+        fire: 'Agni - Sacred Fire Worship',
+        cosmos: 'Cosmic Order and Divine Truth'
+      }
+    },
+    'Samaveda': {
+      textName: 'Samaveda',
+      tradition: 'Vedic Chants & Sacred Music',
+      historicalPeriod: 'Vedic Period (1200-1000 BCE)',
+      literaryGenre: 'Sacred Chants & Melodies',
+      estimatedAge: '3000+ years',
+      themes: {
+        chants: 'Sacred Musical Chants',
+        sound: 'Divine Sound and Vibration',
+        sacrifice: 'Ritual Worship and Offerings'
+      }
+    },
+    'Sama Veda': {
+      textName: 'Samaveda',
+      tradition: 'Vedic Chants & Sacred Music',
+      historicalPeriod: 'Vedic Period (1200-1000 BCE)',
+      literaryGenre: 'Sacred Chants & Melodies',
+      estimatedAge: '3000+ years',
+      themes: {
+        chants: 'Sacred Musical Chants',
+        sound: 'Divine Sound and Vibration',
+        sacrifice: 'Ritual Worship and Offerings'
+      }
+    },
+    'Bhagavad Gita': {
+      textName: 'Bhagavad Gita',
+      tradition: 'Hindu Philosophy & Spiritual Guidance',
+      historicalPeriod: 'Classical Period (5th-2nd century BCE)',
+      literaryGenre: 'Philosophical Dialogue',
+      estimatedAge: '2000+ years',
+      themes: {
+        dharma: 'Righteous Action and Sacred Duty',
+        yoga: 'Paths to Self-Realization',
+        devotion: 'Divine Love and Surrender'
+      }
+    },
+    'Ramayana': {
+      textName: 'Ramayana',
+      tradition: 'Hindu Epic Literature & Dharma',
+      historicalPeriod: 'Ancient Period (5th century BCE - 2nd century CE)',
+      literaryGenre: 'Epic Narrative Poetry',
+      estimatedAge: '2000+ years',
+      themes: {
+        dharma: 'Righteous Living and Divine Virtue',
+        devotion: 'Pure Love and Dedication',
+        victory: 'Victory of Good over Evil'
+      }
+    },
+
+    // === PURANAS ===
+    'Agni Purana': {
+      textName: 'Agni Purana',
+      tradition: 'Hindu Cosmology & Sacred Rituals',
+      historicalPeriod: 'Classical Period (8th-11th century CE)',
+      literaryGenre: 'Cosmological & Ritual Compendium',
+      estimatedAge: '1000+ years',
+      themes: {
+        fire: 'Divine Fire and Cosmic Creation',
+        rituals: 'Sacred Fire Ceremonies',
+        cosmology: 'Universal Principles and Divine Order'
+      }
+    },
+    'Bhagavata_Purana': {
+      textName: 'Bhagavata Purana',
+      tradition: 'Hindu Devotion & Krishna Bhakti',
+      historicalPeriod: 'Classical Period (9th-10th century CE)',
+      literaryGenre: 'Devotional Epic Literature',
+      estimatedAge: '1100+ years',
+      themes: {
+        krishna: 'Krishna\'s Divine Life and Teachings',
+        devotion: 'Pure Devotional Love - Bhakti',
+        liberation: 'Liberation through Divine Love'
+      }
+    },
+    'Bhagavata Purana': {
+      textName: 'Bhagavata Purana',
+      tradition: 'Hindu Devotion & Krishna Bhakti',
+      historicalPeriod: 'Classical Period (9th-10th century CE)',
+      literaryGenre: 'Devotional Epic Literature',
+      estimatedAge: '1100+ years',
+      themes: {
+        krishna: 'Krishna\'s Divine Life and Teachings',
+        devotion: 'Pure Devotional Love - Bhakti',
+        liberation: 'Liberation through Divine Love'
+      }
+    },
+    'Brahmanda_Purana': {
+      textName: 'Brahmanda Purana',
+      tradition: 'Hindu Cosmology & Universe Creation',
+      historicalPeriod: 'Classical Period (4th-10th century CE)',
+      literaryGenre: 'Cosmological Treatise',
+      estimatedAge: '1200+ years',
+      themes: {
+        cosmos: 'Cosmic Egg and Universe Creation',
+        brahma: 'Creator God Brahma\'s Domain',
+        time: 'Cycles of Time and Creation'
+      }
+    },
+    'Brahmanda Purana': {
+      textName: 'Brahmanda Purana',
+      tradition: 'Hindu Cosmology & Universe Creation',
+      historicalPeriod: 'Classical Period (4th-10th century CE)',
+      literaryGenre: 'Cosmological Treatise',
+      estimatedAge: '1200+ years',
+      themes: {
+        cosmos: 'Cosmic Egg and Universe Creation',
+        brahma: 'Creator God Brahma\'s Domain',
+        time: 'Cycles of Time and Creation'
+      }
+    },
+    'Brahma_Purana': {
+      textName: 'Brahma Purana',
+      tradition: 'Hindu Cosmology & Sacred Geography',
+      historicalPeriod: 'Classical Period (10th-13th century CE)',
+      literaryGenre: 'Cosmological & Geographical Text',
+      estimatedAge: '800+ years',
+      themes: {
+        creation: 'Divine Creation and Cosmic Order',
+        pilgrimage: 'Sacred Places and Pilgrimage',
+        brahma: 'Creator Brahma\'s Wisdom'
+      }
+    },
+    'Brahma Purana': {
+      textName: 'Brahma Purana',
+      tradition: 'Hindu Cosmology & Sacred Geography',
+      historicalPeriod: 'Classical Period (10th-13th century CE)',
+      literaryGenre: 'Cosmological & Geographical Text',
+      estimatedAge: '800+ years',
+      themes: {
+        creation: 'Divine Creation and Cosmic Order',
+        pilgrimage: 'Sacred Places and Pilgrimage',
+        brahma: 'Creator Brahma\'s Wisdom'
+      }
+    },
+    'Garuda_Purana': {
+      textName: 'Garuda Purana',
+      tradition: 'Hindu Afterlife & Spiritual Journey',
+      historicalPeriod: 'Classical Period (8th-12th century CE)',
+      literaryGenre: 'Afterlife & Spiritual Guidance',
+      estimatedAge: '1000+ years',
+      themes: {
+        death: 'Death, Afterlife, and Soul\'s Journey',
+        vishnu: 'Vishnu\'s Divine Protection',
+        liberation: 'Path to Final Liberation'
+      }
+    },
+    'Garuda Purana': {
+      textName: 'Garuda Purana',
+      tradition: 'Hindu Afterlife & Spiritual Journey',
+      historicalPeriod: 'Classical Period (8th-12th century CE)',
+      literaryGenre: 'Afterlife & Spiritual Guidance',
+      estimatedAge: '1000+ years',
+      themes: {
+        death: 'Death, Afterlife, and Soul\'s Journey',
+        vishnu: 'Vishnu\'s Divine Protection',
+        liberation: 'Path to Final Liberation'
+      }
+    },
+    'Kurma_Purana': {
+      textName: 'Kurma Purana',
+      tradition: 'Hindu Cosmology & Vishnu Incarnation',
+      historicalPeriod: 'Classical Period (6th-11th century CE)',
+      literaryGenre: 'Incarnation Literature',
+      estimatedAge: '1100+ years',
+      themes: {
+        kurma: 'Vishnu as Cosmic Turtle Avatar',
+        ocean: 'Churning of Cosmic Ocean',
+        dharma: 'Righteousness and Cosmic Order'
+      }
+    },
+    'Kurma Purana': {
+      textName: 'Kurma Purana',
+      tradition: 'Hindu Cosmology & Vishnu Incarnation',
+      historicalPeriod: 'Classical Period (6th-11th century CE)',
+      literaryGenre: 'Incarnation Literature',
+      estimatedAge: '1100+ years',
+      themes: {
+        kurma: 'Vishnu as Cosmic Turtle Avatar',
+        ocean: 'Churning of Cosmic Ocean',
+        dharma: 'Righteousness and Cosmic Order'
+      }
+    },
+    'Linga_Purana': {
+      textName: 'Linga Purana',
+      tradition: 'Hindu Shaivism & Divine Symbols',
+      historicalPeriod: 'Classical Period (5th-10th century CE)',
+      literaryGenre: 'Shaivite Devotional Text',
+      estimatedAge: '1200+ years',
+      themes: {
+        linga: 'Sacred Linga as Divine Symbol',
+        shiva: 'Lord Shiva\'s Cosmic Manifestation',
+        creation: 'Creation, Preservation, Destruction'
+      }
+    },
+    'Linga Purana': {
+      textName: 'Linga Purana',
+      tradition: 'Hindu Shaivism & Divine Symbols',
+      historicalPeriod: 'Classical Period (5th-10th century CE)',
+      literaryGenre: 'Shaivite Devotional Text',
+      estimatedAge: '1200+ years',
+      themes: {
+        linga: 'Sacred Linga as Divine Symbol',
+        shiva: 'Lord Shiva\'s Cosmic Manifestation',
+        creation: 'Creation, Preservation, Destruction'
+      }
+    },
+    'Markandeya_Purana': {
+      textName: 'Markandeya Purana',
+      tradition: 'Hindu Devotion & Divine Mother',
+      historicalPeriod: 'Classical Period (3rd-6th century CE)',
+      literaryGenre: 'Divine Mother Literature',
+      estimatedAge: '1500+ years',
+      themes: {
+        devi: 'Divine Mother Durga\'s Glory',
+        protection: 'Divine Protection from Evil',
+        devotion: 'Mother\'s Compassionate Grace'
+      }
+    },
+    'Markandeya Purana': {
+      textName: 'Markandeya Purana',
+      tradition: 'Hindu Devotion & Divine Mother',
+      historicalPeriod: 'Classical Period (3rd-6th century CE)',
+      literaryGenre: 'Divine Mother Literature',
+      estimatedAge: '1500+ years',
+      themes: {
+        devi: 'Divine Mother Durga\'s Glory',
+        protection: 'Divine Protection from Evil',
+        devotion: 'Mother\'s Compassionate Grace'
+      }
+    },
+    'Matsya_Purana': {
+      textName: 'Matsya Purana',
+      tradition: 'Hindu Cosmology & Divine Preservation',
+      historicalPeriod: 'Classical Period (3rd-10th century CE)',
+      literaryGenre: 'Preservation Mythology',
+      estimatedAge: '1300+ years',
+      themes: {
+        matsya: 'Vishnu as Fish Avatar',
+        flood: 'Great Flood and Divine Rescue',
+        preservation: 'Divine Preservation of Life'
+      }
+    },
+    'Matsya Purana': {
+      textName: 'Matsya Purana',
+      tradition: 'Hindu Cosmology & Divine Preservation',
+      historicalPeriod: 'Classical Period (3rd-10th century CE)',
+      literaryGenre: 'Preservation Mythology',
+      estimatedAge: '1300+ years',
+      themes: {
+        matsya: 'Vishnu as Fish Avatar',
+        flood: 'Great Flood and Divine Rescue',
+        preservation: 'Divine Preservation of Life'
+      }
+    },
+    'Narada_Purana': {
+      textName: 'Narada Purana',
+      tradition: 'Hindu Devotion & Divine Sage Wisdom',
+      historicalPeriod: 'Classical Period (8th-12th century CE)',
+      literaryGenre: 'Sage Teachings & Devotion',
+      estimatedAge: '1000+ years',
+      themes: {
+        narada: 'Sage Narada\'s Divine Wisdom',
+        devotion: 'Pure Devotional Practice',
+        pilgrimage: 'Sacred Pilgrimage and Worship'
+      }
+    },
+    'Narada Purana': {
+      textName: 'Narada Purana',
+      tradition: 'Hindu Devotion & Divine Sage Wisdom',
+      historicalPeriod: 'Classical Period (8th-12th century CE)',
+      literaryGenre: 'Sage Teachings & Devotion',
+      estimatedAge: '1000+ years',
+      themes: {
+        narada: 'Sage Narada\'s Divine Wisdom',
+        devotion: 'Pure Devotional Practice',
+        pilgrimage: 'Sacred Pilgrimage and Worship'
+      }
+    },
+    'Vishnu_Purana': {
+      textName: 'Vishnu Purana',
+      tradition: 'Hindu Cosmology & Vishnu Devotion',
+      historicalPeriod: 'Classical Period (3rd-10th century CE)',
+      literaryGenre: 'Devotional Cosmology',
+      estimatedAge: '1400+ years',
+      themes: {
+        vishnu: 'Lord Vishnu as Supreme Reality',
+        avatars: 'Divine Incarnations and Purpose',
+        preservation: 'Cosmic Preservation and Order'
+      }
+    },
+    'Vishnu Purana': {
+      textName: 'Vishnu Purana',
+      tradition: 'Hindu Cosmology & Vishnu Devotion',
+      historicalPeriod: 'Classical Period (3rd-10th century CE)',
+      literaryGenre: 'Devotional Cosmology',
+      estimatedAge: '1400+ years',
+      themes: {
+        vishnu: 'Lord Vishnu as Supreme Reality',
+        avatars: 'Divine Incarnations and Purpose',
+        preservation: 'Cosmic Preservation and Order'
+      }
+    },
+    'Shiva_Purana': {
+      textName: 'Shiva Purana',
+      tradition: 'Hindu Shaivism & Divine Consciousness',
+      historicalPeriod: 'Classical Period (10th-14th century CE)',
+      literaryGenre: 'Shaivite Philosophy & Devotion',
+      estimatedAge: '800+ years',
+      themes: {
+        shiva: 'Lord Shiva as Supreme Consciousness',
+        yoga: 'Yogic Path to Divine Union',
+        transformation: 'Spiritual Transformation'
+      }
+    },
+    'Shiva Purana': {
+      textName: 'Shiva Purana',
+      tradition: 'Hindu Shaivism & Divine Consciousness',
+      historicalPeriod: 'Classical Period (10th-14th century CE)',
+      literaryGenre: 'Shaivite Philosophy & Devotion',
+      estimatedAge: '800+ years',
+      themes: {
+        shiva: 'Lord Shiva as Supreme Consciousness',
+        yoga: 'Yogic Path to Divine Union',
+        transformation: 'Spiritual Transformation'
+      }
+    },
+    'Vamana_Purana': {
+      textName: 'Vamana Purana',
+      tradition: 'Hindu Cosmology & Divine Humility',
+      historicalPeriod: 'Classical Period (9th-13th century CE)',
+      literaryGenre: 'Avatar Literature',
+      estimatedAge: '900+ years',
+      themes: {
+        vamana: 'Vishnu as Dwarf Avatar',
+        humility: 'Power of Divine Humility',
+        cosmos: 'Three Worlds and Cosmic Order'
+      }
+    },
+    'Vamana Purana': {
+      textName: 'Vamana Purana',
+      tradition: 'Hindu Cosmology & Divine Humility',
+      historicalPeriod: 'Classical Period (9th-13th century CE)',
+      literaryGenre: 'Avatar Literature',
+      estimatedAge: '900+ years',
+      themes: {
+        vamana: 'Vishnu as Dwarf Avatar',
+        humility: 'Power of Divine Humility',
+        cosmos: 'Three Worlds and Cosmic Order'
+      }
+    },
+    'Skanda_Purana': {
+      textName: 'Skanda Purana',
+      tradition: 'Hindu Devotion & Sacred Geography',
+      historicalPeriod: 'Classical Period (7th-12th century CE)',
+      literaryGenre: 'Pilgrimage & Devotional Literature',
+      estimatedAge: '1100+ years',
+      themes: {
+        skanda: 'Lord Skanda (Kartikeya) Devotion',
+        pilgrimage: 'Sacred Places and Spiritual Journey',
+        victory: 'Victory of Good over Evil'
+      }
+    },
+    'Skanda Purana': {
+      textName: 'Skanda Purana',
+      tradition: 'Hindu Devotion & Sacred Geography',
+      historicalPeriod: 'Classical Period (7th-12th century CE)',
+      literaryGenre: 'Pilgrimage & Devotional Literature',
+      estimatedAge: '1100+ years',
+      themes: {
+        skanda: 'Lord Skanda (Kartikeya) Devotion',
+        pilgrimage: 'Sacred Places and Spiritual Journey',
+        victory: 'Victory of Good over Evil'
+      }
+    },
+    'Vayu_Purana': {
+      textName: 'Vayu Purana',
+      tradition: 'Hindu Cosmology & Divine Wind',
+      historicalPeriod: 'Classical Period (4th-10th century CE)',
+      literaryGenre: 'Cosmological Philosophy',
+      estimatedAge: '1200+ years',
+      themes: {
+        vayu: 'Divine Wind and Life Force',
+        cosmos: 'Cosmic Creation and Evolution',
+        genealogy: 'Divine and Royal Lineages'
+      }
+    },
+    'Vayu Purana': {
+      textName: 'Vayu Purana',
+      tradition: 'Hindu Cosmology & Divine Wind',
+      historicalPeriod: 'Classical Period (4th-10th century CE)',
+      literaryGenre: 'Cosmological Philosophy',
+      estimatedAge: '1200+ years',
+      themes: {
+        vayu: 'Divine Wind and Life Force',
+        cosmos: 'Cosmic Creation and Evolution',
+        genealogy: 'Divine and Royal Lineages'
+      }
+    }
+  } as Record<string, any>,
+  
+  // Traditional Epic Sources
+  traditional: {
+    'Ramayana': {
+      textName: 'Ramayana',
+      tradition: 'Hindu Epic Literature',
+      historicalPeriod: 'Ancient Period (5th century BCE - 2nd century CE)',
+      literaryGenre: 'Epic Narrative Poetry',
+      estimatedAge: '2000+ years',
+      kandas: {
+        '1': { name: 'Bala Kanda', theme: 'Divine Birth and Early Life', focus: 'Origins of virtue and dharma' },
+        '2': { name: 'Ayodhya Kanda', theme: 'Exile and Sacrifice', focus: 'Duty, honor, and family bonds' },
+        '3': { name: 'Aranya Kanda', theme: 'Forest Teachings', focus: 'Simple living and spiritual wisdom' },
+        '4': { name: 'Kishkindha Kanda', theme: 'Divine Friendship', focus: 'Loyalty, service, and alliance' },
+        '5': { name: 'Sundara Kanda', theme: 'Devotional Service', focus: 'Courage, faith, and dedication' },
+        '6': { name: 'Yuddha Kanda', theme: 'Victory of Good', focus: 'Justice, righteousness, and divine grace' },
+        '7': { name: 'Uttara Kanda', theme: 'Divine Realm', focus: 'Eternal principles and cosmic order' }
+      }
+    },
+    'Mahabharata': {
+      textName: 'Mahabharata',
+      tradition: 'Hindu Epic Literature & Philosophy',
+      historicalPeriod: 'Ancient Period (8th century BCE - 4th century CE)',
+      literaryGenre: 'Epic Historical Narrative',
+      estimatedAge: '2000+ years'
+    }
+  } as Record<string, any>
+};
+
+const SPIRITUAL_THEMES: Record<string, string> = {
+  dharma: 'Righteous Living and Moral Duty',
+  devotion: 'Divine Love and Surrender',
+  courage: 'Spiritual Bravery and Inner Strength',
+  sacrifice: 'Selfless Service and Offering',
+  wisdom: 'Sacred Knowledge and Understanding',
+  love: 'Divine Love and Compassion',
+  duty: 'Sacred Responsibility and Service',
+  truth: 'Eternal Truth and Reality',
+  meditation: 'Inner Peace and Self-Realization',
+  yoga: 'Union with the Divine',
+  karma: 'Action and Spiritual Consequence',
+  moksha: 'Liberation and Freedom'
+};
+
+const CHARACTER_CONTEXT: Record<string, string> = {
+  'Rama': 'Divine prince and embodiment of dharma',
+  'Sita': 'Goddess of devotion and inner strength',
+  'Lakshmana': 'Model of loyalty and service',
+  'Hanuman': 'Devotee exemplifying courage and faith',
+  'Ravana': 'Ego and the fall from grace',
+  'Krishna': 'Divine teacher and guide',
+  'Arjuna': 'Spiritual seeker facing moral dilemma',
+  'Dasharatha': 'Righteous king torn by duty'
+};
+
+const LOCATION_CONTEXT: Record<string, string> = {
+  'Ayodhya': 'Ideal kingdom of righteousness',
+  'forest': 'Spiritual retreat and simple living',
+  'Lanka': 'Kingdom of material power and ego',
+  'Kurukshetra': 'Battlefield of inner spiritual conflict',
+  'Mithila': 'Realm of wisdom and learning',
+  'Chitrakoot': 'Sacred mountain of meditation',
+  'Panchavati': 'Hermitage of peaceful contemplation'
+};
+
+function formatWisdomMetadata(
+  sourceName: string, 
+  fileName: string, 
+  metadata: string, 
+  dimensions: WisdomDimensions,
+  gretilWisdom?: any
+): EnhancedRawTextAnnotation {
+  
+  console.log('🔍 formatWisdomMetadata DEBUG - INPUT:', { 
+    sourceName, 
+    fileName, 
+    metadata, 
+    dimensions, 
+    gretilWisdom: gretilWisdom ? {
+      textName: gretilWisdom.textName,
+      reference: gretilWisdom.reference,
+      category: gretilWisdom.category,
+      sanskrit: gretilWisdom.sanskrit?.substring(0, 50) + '...'
+    } : null
+  });
+  
+  // Handle Gretil/Sanskrit sources
+  if (sourceName.startsWith('Gretil_') || gretilWisdom) {
+    const textKey = gretilWisdom?.textName || fileName.replace('.txt', '').replace(/[_-]/g, '_');
+    
+    // Try exact match first
+    let mapping = SPIRITUAL_TEXT_MAPPINGS.gretil[textKey];
+    
+    // If no exact match, try partial matching
+    if (!mapping) {
+      mapping = Object.values(SPIRITUAL_TEXT_MAPPINGS.gretil).find(m => 
+        m.textName.toLowerCase().includes(textKey.toLowerCase().split('_')[0]));
+    }
+    
+    // If still no match, try filename-based matching
+    if (!mapping) {
+      const cleanFileName = fileName.replace('.txt', '').replace(/[_-]/g, '_');
+      mapping = SPIRITUAL_TEXT_MAPPINGS.gretil[cleanFileName];
+    }
+    
+    if (mapping) {
+      const reference = gretilWisdom?.reference || 'Sacred Verse';
+      const category = gretilWisdom?.category || 'Sacred Texts';
+      
+      // Determine spiritual theme based on content
+      let spiritualTheme = 'Sacred Wisdom';
+      if (mapping.themes) {
+        for (const [key, theme] of Object.entries(mapping.themes)) {
+          if (reference.toLowerCase().includes(key) || 
+              category.toLowerCase().includes(key) ||
+              (gretilWisdom?.sanskrit && gretilWisdom.sanskrit.toLowerCase().includes(key))) {
+            spiritualTheme = String(theme);
+            break;
+          }
+        }
+      }
+      
+      // Fallback theme based on text type if no specific theme found
+      if (spiritualTheme === 'Sacred Wisdom') {
+        if (mapping.textName.toLowerCase().includes('upanishad')) {
+          spiritualTheme = 'Self-Realization and Cosmic Unity';
+        } else if (mapping.textName.toLowerCase().includes('purana')) {
+          spiritualTheme = 'Divine Manifestation and Cosmic Order';
+        } else if (mapping.textName.toLowerCase().includes('veda')) {
+          spiritualTheme = 'Sacred Sound and Divine Invocation';
+        } else if (mapping.textName.toLowerCase().includes('gita')) {
+          spiritualTheme = 'Dharma and Spiritual Liberation';
+        }
+      }
+      
+      const result = {
+        textName: mapping.textName,
+        tradition: mapping.tradition,
+        chapter: formatGretilChapter(reference, mapping.textName),
+        section: formatGretilSection(reference, category, mapping.textName),
+        spiritualTheme,
+        literaryGenre: mapping.literaryGenre,
+        historicalPeriod: mapping.historicalPeriod,
+        estimatedAge: mapping.estimatedAge,
+        technicalReference: reference,
+        // Legacy compatibility
+        theme: spiritualTheme,
+        source: mapping.textName
+      };
+      
+      console.log('🔍 formatWisdomMetadata DEBUG - RESULT:', result);
+      return result;
+    }
+  }
+  
+  // Handle traditional sources (Ramayana, etc.)
+  const traditionalMapping = SPIRITUAL_TEXT_MAPPINGS.traditional[sourceName];
+  if (traditionalMapping) {
+    const chapterInfo = extractChapterInfo(fileName, metadata);
+    const enhancedChapter = enhanceTraditionalChapter(chapterInfo.chapter, traditionalMapping);
+    const enhancedSection = enhanceTraditionalSection(chapterInfo.section, metadata, dimensions);
+    
+    // Determine characters and locations
+    const characters = dimensions.character ? 
+      [dimensions.character] : 
+      extractCharactersFromMetadata(metadata);
+    
+    const location = dimensions.location || extractLocationFromMetadata(metadata);
+    const spiritualTheme = enhanceTheme(dimensions.theme || 'spiritual growth');
+    
+    return {
+      textName: traditionalMapping.textName,
+      tradition: traditionalMapping.tradition,
+      chapter: enhancedChapter.name,
+      section: enhancedSection,
+      spiritualTheme,
+      characters,
+      location: location === 'sacred realm' ? undefined : location,
+      literaryGenre: traditionalMapping.literaryGenre,
+      historicalPeriod: traditionalMapping.historicalPeriod,
+      estimatedAge: traditionalMapping.estimatedAge,
+      technicalReference: `${fileName} | ${metadata.substring(0, 50)}...`,
+      // Legacy compatibility
+      theme: spiritualTheme,
+      source: fileName
+    };
+  }
+  
+  // Fallback for unknown sources
+  return {
+    textName: sourceName,
+    tradition: 'Sacred Literature',
+    chapter: 'Sacred Chapter',
+    section: 'Sacred Section',
+    spiritualTheme: 'Divine Wisdom',
+    literaryGenre: 'Spiritual Teaching',
+    historicalPeriod: 'Ancient Tradition',
+    estimatedAge: 'Timeless',
+    // Legacy compatibility
+    theme: 'wisdom',
+    source: sourceName
+  };
+}
+
+function formatGretilChapter(reference: string, textName: string): string {
+  console.log('🔍 formatGretilChapter DEBUG:', { reference, textName });
+  
+  if (textName.includes('Bhagavad Gita')) {
+    const chapterMatch = reference.match(/bhg\s*(\d+)/);
+    if (chapterMatch) {
+      const chapterNum = chapterMatch[1];
+      const chapterNames: Record<string, string> = {
+        '1': 'The Yoga of Dejection',
+        '2': 'The Yoga of Knowledge',
+        '3': 'The Yoga of Action',
+        '4': 'The Yoga of Wisdom',
+        '5': 'The Yoga of Renunciation',
+        '6': 'The Yoga of Self-Control',
+        '7': 'The Yoga of Spiritual Knowledge',
+        '8': 'The Yoga of the Imperishable Brahman',
+        '9': 'The Yoga of Royal Knowledge',
+        '10': 'The Yoga of Divine Manifestations',
+        '11': 'The Yoga of the Vision of the Universal Form',
+        '12': 'The Yoga of Devotion',
+        '13': 'The Yoga of the Division of the Three Gunas',
+        '14': 'The Yoga of the Division of the Three Gunas',
+        '15': 'The Yoga of the Supreme Spirit',
+        '16': 'The Yoga of the Division of the Divine and Demoniacal',
+        '17': 'The Yoga of the Threefold Faith',
+        '18': 'The Yoga of Liberation through Renunciation'
+      };
+      return `Chapter ${chapterNum}: ${chapterNames[chapterNum] || 'Sacred Teaching'}`;
+    }
+  }
+  
+  if (textName.includes('Purana')) {
+    const bookMatch = reference.match(/(\d+)/);
+    if (bookMatch) {
+      return `Book ${bookMatch[1]}: Sacred Cosmology`;
+    }
+  }
+  
+  if (textName.includes('Upanishad')) {
+    // Handle specific reference patterns
+    const sectionMatch = reference.match(/(\d+),(\d+)/);
+    if (sectionMatch) {
+      return `Chapter ${sectionMatch[1]}: Mystical Teachings`;
+    }
+    
+    // Handle fallback patterns from gretilWisdomService
+    if (reference === 'General Passage') {
+      return 'Mystical Teaching: Sacred Wisdom';
+    }
+    
+    if (reference.startsWith('Line ')) {
+      const lineNum = reference.replace('Line ', '');
+      const section = Math.ceil(parseInt(lineNum) / 10);
+      return `Section ${section}: Vedantic Wisdom`;
+    }
+    
+    // Default for Upanishads
+    return 'Upanishadic Teaching: Inner Knowledge';
+  }
+  
+  // Handle Purana references more thoroughly
+  if (textName.includes('Purana')) {
+    // Handle specific Agni Purana pattern
+    if (reference.match(/ap_\d+\.\d+/)) {
+      const match = reference.match(/ap_(\d+)\.(\d+)/);
+      if (match) {
+        return `Book ${match[1]}: Sacred Cosmology`;
+      }
+    }
+    
+    // Handle general patterns
+    if (reference === 'General Passage') {
+      return 'Cosmic Teaching: Divine Wisdom';
+    }
+    
+    if (reference.startsWith('Line ')) {
+      const lineNum = reference.replace('Line ', '');
+      const book = Math.ceil(parseInt(lineNum) / 50);
+      return `Book ${book}: Sacred Cosmology`;
+    }
+  }
+  
+  // Handle Vedas
+  if (textName.toLowerCase().includes('veda')) {
+    if (reference === 'General Passage') {
+      return 'Vedic Hymn: Sacred Sound';
+    }
+    
+    if (reference.match(/RvKh_\d+,\d+\.\d+/)) {
+      return 'Rig Veda Khila: Sacred Hymn';
+    }
+    
+    if (reference.startsWith('Line ')) {
+      return 'Vedic Mantra: Divine Invocation';
+    }
+  }
+  
+  // Generic fallback based on reference type
+  if (reference === 'General Passage') {
+    return 'Sacred Teaching: Divine Wisdom';
+  }
+  
+  if (reference.startsWith('Line ')) {
+    return 'Sacred Discourse: Spiritual Guidance';
+  }
+  
+  return 'Sacred Chapter';
+}
+
+function formatGretilSection(reference: string, category: string, textName: string): string {
+  console.log('🔍 formatGretilSection DEBUG:', { reference, category, textName });
+  
+  if (textName.includes('Bhagavad Gita')) {
+    const verseMatch = reference.match(/bhg\s*\d+\.(\d+)/);
+    if (verseMatch) {
+      return `Verse ${verseMatch[1]}: Divine Guidance`;
+    }
+  }
+  
+  if (category.toLowerCase().includes('purana')) {
+    return 'Cosmic Principles and Divine Order';
+  }
+  
+  if (category.toLowerCase().includes('upanishad')) {
+    return 'Mystical Wisdom and Inner Truth';
+  }
+  
+  return 'Sacred Wisdom';
+}
+
+function enhanceTraditionalChapter(chapter: string, mapping: any): { name: string, theme?: string } {
+  if (mapping.kandas) {
+    const kandaMatch = chapter.match(/Kanda\s*(\d+)/);
+    if (kandaMatch && mapping.kandas[kandaMatch[1]]) {
+      const kanda = mapping.kandas[kandaMatch[1]];
+      return {
+        name: `${kanda.name}: ${kanda.theme}`,
+        theme: kanda.focus
+      };
+    }
+  }
+  
+  return { name: chapter };
+}
+
+function enhanceTraditionalSection(section: string, metadata: string, dimensions: WisdomDimensions): string {
+  // Extract meaningful episode names from metadata
+  const episodeMatch = metadata.match(/\[SECTION[:]?\s*([^\]]+)\]/i);
+  if (episodeMatch) {
+    const episode = episodeMatch[1].trim();
+    // Enhance common episode patterns
+    if (episode.toLowerCase().includes('birth')) return 'Divine Birth and Destiny';
+    if (episode.toLowerCase().includes('exile')) return 'Journey into Exile';
+    if (episode.toLowerCase().includes('forest')) return 'Forest Teachings and Trials';
+    if (episode.toLowerCase().includes('battle')) return 'Victory of Righteousness';
+    if (episode.toLowerCase().includes('marriage')) return 'Sacred Union and Commitment';
+    if (episode.toLowerCase().includes('coronation')) return 'Righteous Leadership';
+    return episode;
+  }
+  
+  // Character-based enhancement
+  if (dimensions.character && CHARACTER_CONTEXT[dimensions.character]) {
+    return `Episode of ${dimensions.character}: ${CHARACTER_CONTEXT[dimensions.character]}`;
+  }
+  
+  return section;
+}
+
+function extractCharactersFromMetadata(metadata: string): string[] {
+  const charMatch = metadata.match(/\[CHARACTERS[:]?\s*([^\]]+)\]/i);
+  if (charMatch) {
+    return charMatch[1].split(',').map(c => c.trim());
+  }
+  return [];
+}
+
+function extractLocationFromMetadata(metadata: string): string | undefined {
+  const locMatch = metadata.match(/\[PLACES[:]?\s*([^\]]+)\]/i);
+  if (locMatch) {
+    const location = locMatch[1].trim();
+    return LOCATION_CONTEXT[location] ? `${location}: ${LOCATION_CONTEXT[location]}` : location;
+  }
+  return undefined;
+}
+
+function enhanceTheme(theme: string): string {
+  return SPIRITUAL_THEMES[theme] || theme.charAt(0).toUpperCase() + theme.slice(1);
+}
+
 function extractChapterInfo(fileName: string, metadata: string): { chapter: string, section: string } {
     let chapter = 'Sacred Chapter';
     let section = 'Sacred Section';
@@ -628,14 +1754,18 @@ export async function POST(request: NextRequest) {
             console.log('Gretil AI enhancement error, using fallback:', error);
           }
           
+          // Use enhanced metadata formatting for Gretil sources
+          const enhancedGretilMetadata = formatWisdomMetadata(
+            sourceName,
+            gretilFileName,
+            '',
+            { character: undefined, theme: gretilWisdom.category, location: undefined },
+            gretilWisdom
+          );
+
           const gretilResponse = {
             rawText: gretilWisdom.sanskrit,
-            rawTextAnnotation: {
-              chapter: gretilWisdom.reference,
-              section: 'Gretil Corpus',
-              source: gretilWisdom.textName,
-              theme: gretilWisdom.category.toLowerCase()
-            },
+            rawTextAnnotation: enhancedGretilMetadata,
             wisdom: enhancedWisdom,
             context: `Daily wisdom from ${gretilWisdom.textName} - ${gretilWisdom.category}`,
             type: 'verse' as const,
