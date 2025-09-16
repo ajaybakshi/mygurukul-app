@@ -1,13 +1,16 @@
 /**
  * TransliterationService - Intelligent IAST to Devanagari conversion
- * Builds on the proven Sanskrit processing architecture
+ * Builds on the proven Sanskrit processing architecture using sanscript library
  * 
  * Features:
+ * - Uses proven sanscript library for accurate transliteration
  * - Robust script detection using Unicode ranges
  * - Prevents double-conversion errors  
  * - Maintains scholarly accuracy
  * - Optimized for audio generation pipeline
  */
+
+import * as sanscript from 'sanscript';
 
 export enum ScriptType {
   DEVANAGARI = 'devanagari',
@@ -300,9 +303,34 @@ export class TransliterationService {
   }
 
   /**
-   * Convert IAST text to Devanagari
+   * Convert IAST text to Devanagari using proven sanscript library
    */
   private convertIASTToDevanagari(text: string, options: TransliterationOptions): string {
+    try {
+      // Use sanscript library for accurate transliteration
+      let result = sanscript.t(text, 'iast', 'devanagari');
+      
+      // Preserve numbers if requested
+      if (options.preserveNumbers) {
+        result = this.restoreNumbers(result, text);
+      }
+
+      // Clean up any remaining artifacts
+      result = this.cleanupResult(result);
+
+      return result;
+    } catch (error) {
+      console.warn('Sanscript transliteration failed, falling back to custom logic:', error);
+      // Fallback to custom logic if sanscript fails
+      return this.fallbackTransliteration(text, options);
+    }
+  }
+
+  /**
+   * Fallback transliteration method using custom logic
+   * Used when sanscript library fails
+   */
+  private fallbackTransliteration(text: string, options: TransliterationOptions): string {
     let result = text;
 
     // Handle special cases first (conjuncts, vowel combinations)
