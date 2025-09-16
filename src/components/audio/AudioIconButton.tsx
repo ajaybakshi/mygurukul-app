@@ -110,7 +110,7 @@ export const AudioIconButton: React.FC<AudioIconButtonProps> = ({
           text,
           language,
           voice: voice || 'FVlJRjSBkHratGRXBKRG', // Default to user's preferred voice
-          speed: 0.25, // Much slower speed for better Sanskrit pronunciation
+          speed: 0.125, // Much slower speed for better Sanskrit pronunciation
           pitch: 1.0,
           format: 'mp3',
           quality: 'medium',

@@ -42,6 +42,7 @@ export interface ElevenLabsTtsRequest {
     style?: number;
     use_speaker_boost?: boolean;
   };
+  speed?: number;
   output_format?: string;
 }
 
@@ -236,6 +237,7 @@ export class ElevenLabsTtsService {
         style: 0.0,
         use_speaker_boost: true
       },
+      speed: request.speed || 0.0625,
       output_format: 'mp3_44100_128'
     };
 
