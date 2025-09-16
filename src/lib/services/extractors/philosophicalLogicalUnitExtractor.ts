@@ -5,6 +5,8 @@
  */
 
 import { GretilTextType } from '../../../types/gretil-types';
+import { BoundaryExtractor } from '../boundaryExtractor';
+import { ScripturePatternService } from '../scripturePatternService';
 
 export interface PhilosophicalUnit {
   sanskrit: string;
@@ -35,6 +37,11 @@ export interface PhilosophicalExtractionOptions {
 }
 
 export class PhilosophicalLogicalUnitExtractor {
+  private scripturePatternService: ScripturePatternService;
+
+  constructor() {
+    this.scripturePatternService = ScripturePatternService.getInstance();
+  }
 
   private readonly DEFAULT_OPTIONS: PhilosophicalExtractionOptions = {
     minVerses: 2,
@@ -56,7 +63,7 @@ export class PhilosophicalLogicalUnitExtractor {
 
     try {
       // Parse content into verses with references
-      const verses = this.parsePhilosophicalVerses(content);
+      const verses = this.parsePhilosophicalVerses(content, filename);
       console.log(`📖 Found ${verses.length} philosophical verses in ${filename}`);
 
       if (verses.length < opts.minVerses) {
@@ -121,7 +128,7 @@ export class PhilosophicalLogicalUnitExtractor {
    * Parse philosophical content into individual verses with references
    * Handles both structured references (chup_4,1.1) and unstructured philosophical content
    */
-  private parsePhilosophicalVerses(content: string): Array<{ reference: string; text: string; lineNumber: number }> {
+  private parsePhilosophicalVerses(content: string, filename: string): Array<{ reference: string; text: string; lineNumber: number }> {
     const verses: Array<{ reference: string; text: string; lineNumber: number }> = [];
     const lines = content.split('\n');
 
@@ -161,7 +168,7 @@ export class PhilosophicalLogicalUnitExtractor {
         const match = line.match(pattern);
         if (match) {
           reference = match[0];
-          text = this.extractVerseText(line);
+          text = this.extractVerseText(line, filename);
           foundPattern = true;
           break;
         }
@@ -199,8 +206,12 @@ export class PhilosophicalLogicalUnitExtractor {
       /(?:upāsana|dhyāna|samādhi)/i    // Practice/meditation terms
     ];
 
-    // Find sequences with philosophical commentary markers
-    for (let i = 0; i < verses.length - 1; i++) {
+    // CRITICAL FIX: Start from random position for true content diversity
+    const startIndex = Math.floor(Math.random() * Math.max(1, verses.length - 10));
+    console.log(`🎲 Random starting index for commentary search: ${startIndex} (out of ${verses.length} verses)`);
+    
+    // Find sequences with philosophical commentary markers starting from random position
+    for (let i = startIndex; i < verses.length - 1; i++) {
       const currentVerse = verses[i];
       const hasCommentary = commentaryMarkers.some(marker => marker.test(currentVerse.text));
 
@@ -253,8 +264,12 @@ export class PhilosophicalLogicalUnitExtractor {
       /(?:kathayati|ākhyāti)/i          // Narrates/tells
     ];
 
-    // Find sequences with dialogue markers
-    for (let i = 0; i < verses.length - 1; i++) {
+    // CRITICAL FIX: Start from random position for true content diversity
+    const startIndex = Math.floor(Math.random() * Math.max(1, verses.length - 10));
+    console.log(`🎲 Random starting index for dialogue search: ${startIndex} (out of ${verses.length} verses)`);
+    
+    // Find sequences with dialogue markers starting from random position
+    for (let i = startIndex; i < verses.length - 1; i++) {
       const currentVerse = verses[i];
       const hasDialogue = dialogueMarkers.some(marker => marker.test(currentVerse.text));
 
@@ -302,8 +317,12 @@ export class PhilosophicalLogicalUnitExtractor {
       /(?:prāṇa|cit|ānanda)/i          // Life force/consciousness/bliss
     ];
 
-    // Find sequences that discuss related philosophical concepts
-    for (let i = 0; i < verses.length - 1; i++) {
+    // CRITICAL FIX: Start from random position for true content diversity
+    const startIndex = Math.floor(Math.random() * Math.max(1, verses.length - 10));
+    console.log(`🎲 Random starting index for concept search: ${startIndex} (out of ${verses.length} verses)`);
+    
+    // Find sequences that discuss related philosophical concepts starting from random position
+    for (let i = startIndex; i < verses.length - 1; i++) {
       const currentVerse = verses[i];
       const currentConcepts = philosophicalConcepts.filter(concept => concept.test(currentVerse.text));
 
@@ -429,34 +448,10 @@ export class PhilosophicalLogicalUnitExtractor {
   }
 
   /**
-   * Extract clean verse text (remove references, clean formatting)
+   * Extract clean verse text using scripture-specific patterns
    */
-  private extractVerseText(line: string): string {
-    // Handle comment lines with references
-    if (line.startsWith('//')) {
-      // Extract text after reference in comment lines
-      const parts = line.split(/\s+/);
-      const refIndex = parts.findIndex(part =>
-        /chup_|Taitt_|BU_|bhg|KU_|IU_|MU_/i.test(part)
-      );
-      if (refIndex !== -1 && refIndex < parts.length - 1) {
-        // Join everything after the reference
-        return parts.slice(refIndex + 1).join(' ').trim();
-      }
-    }
-
-    // Standard processing for non-comment lines
-    return line
-      .replace(/chup_\d+,\d+\.\d+\s*/i, '')     // Remove Chandogya references
-      .replace(/Taitt_\d+,\d+\.\d+\s*/i, '')    // Remove Taittiriya references
-      .replace(/BU_\d+,\d+\.\d+\s*/i, '')       // Remove Brihadaranyaka references
-      .replace(/bhg \d+\.\d+\s*/i, '')          // Remove Bhagavad Gita references
-      .replace(/KU_\d+,\d+\.\d+\s*/i, '')       // Remove Katha references
-      .replace(/IU_\d+\.\d+\s*/i, '')           // Remove Isha references
-      .replace(/MU_\d+\.\d+\s*/i, '')           // Remove Mandukya references
-      .replace(/\/\/.*$/, '')                   // Remove end comments
-      .replace(/\|\|.*$/, '')                   // Remove verse endings
-      .trim();
+  private extractVerseText(line: string, scriptureFile: string): string {
+    return this.scripturePatternService.extractVerseText(line, scriptureFile);
   }
 
   /**

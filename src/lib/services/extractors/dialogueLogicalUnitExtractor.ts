@@ -5,6 +5,8 @@
  */
 
 import { GretilTextType } from '../../../types/gretil-types';
+import { BoundaryExtractor } from '../boundaryExtractor';
+import { ScripturePatternService } from '../scripturePatternService';
 
 export interface DialogueUnit {
   sanskrit: string;
@@ -36,6 +38,11 @@ export interface DialogueExtractionOptions {
 }
 
 export class DialogueLogicalUnitExtractor {
+  private scripturePatternService: ScripturePatternService;
+
+  constructor() {
+    this.scripturePatternService = ScripturePatternService.getInstance();
+  }
 
   private readonly DEFAULT_OPTIONS: DialogueExtractionOptions = {
     minVerses: 2,
@@ -74,7 +81,7 @@ export class DialogueLogicalUnitExtractor {
 
     try {
       // Parse content into verses with references
-      const verses = this.parseDialogueVerses(content);
+      const verses = this.parseDialogueVerses(content, filename);
       console.log(`📖 Found ${verses.length} dialogue verses in ${filename}`);
 
       if (verses.length < opts.minVerses) {
@@ -137,7 +144,7 @@ export class DialogueLogicalUnitExtractor {
    * Parse dialogue content into individual verses with references
    * Handles both structured references (bhg 2.15) and unstructured dialogue content
    */
-  private parseDialogueVerses(content: string): Array<{ reference: string; text: string; lineNumber: number }> {
+  private parseDialogueVerses(content: string, filename: string): Array<{ reference: string; text: string; lineNumber: number }> {
     const verses: Array<{ reference: string; text: string; lineNumber: number }> = [];
     const lines = content.split('\n');
 
@@ -175,7 +182,7 @@ export class DialogueLogicalUnitExtractor {
           } else {
             reference = `Verse_${i + 1}`;
           }
-          text = this.extractVerseText(line);
+          text = this.extractVerseText(line, filename);
           foundPattern = true;
           break;
         }
@@ -514,27 +521,10 @@ export class DialogueLogicalUnitExtractor {
   }
 
   /**
-   * Extract clean verse text (remove references, clean formatting)
+   * Extract clean verse text using boundary-based extraction
    */
-  private extractVerseText(line: string): string {
-    // Handle comment lines with references
-    if (line.startsWith('//')) {
-      // Extract text after reference in comment lines
-      const parts = line.split(/\s+/);
-      const refIndex = parts.findIndex(part => /bhg\s*\d+\.\d+/i.test(part));
-      if (refIndex !== -1 && refIndex < parts.length - 1) {
-        // Join everything after the reference
-        return parts.slice(refIndex + 1).join(' ').trim();
-      }
-    }
-
-    // Standard processing for non-comment lines
-    return line
-      .replace(/bhg\s*\d+\.\d+\s*/i, '')        // Remove Bhagavad Gita references
-      .replace(/bhagavad.*gita.*\d+\.\d+\s*/i, '') // Remove full title references
-      .replace(/\/\/.*$/, '')                   // Remove end comments
-      .replace(/\|\|.*$/, '')                   // Remove verse endings
-      .trim();
+  private extractVerseText(line: string, scriptureFile: string): string {
+    return this.scripturePatternService.extractVerseText(line, scriptureFile);
   }
 
   /**

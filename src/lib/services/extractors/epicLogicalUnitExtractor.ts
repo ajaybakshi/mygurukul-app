@@ -5,6 +5,8 @@
  */
 
 import { GretilTextType } from '../../../types/gretil-types';
+import { BoundaryExtractor } from '../boundaryExtractor';
+import { ScripturePatternService } from '../scripturePatternService';
 
 export interface EpicNarrativeUnit {
   sanskrit: string;
@@ -33,6 +35,11 @@ export interface EpicExtractionOptions {
 }
 
 export class EpicLogicalUnitExtractor {
+  private scripturePatternService: ScripturePatternService;
+
+  constructor() {
+    this.scripturePatternService = ScripturePatternService.getInstance();
+  }
 
   private readonly DEFAULT_OPTIONS: EpicExtractionOptions = {
     minVerses: 2,
@@ -53,7 +60,7 @@ export class EpicLogicalUnitExtractor {
 
     try {
       // Parse content into verses with references
-      const verses = this.parseEpicVerses(content);
+      const verses = this.parseEpicVerses(content, filename);
       console.log(`📖 Found ${verses.length} verses in ${filename}`);
 
       if (verses.length < opts.minVerses) {
@@ -109,7 +116,7 @@ export class EpicLogicalUnitExtractor {
    * Parse epic content into individual verses with references
    * Handles both structured references (Ram_2,1.1) and unstructured epic content
    */
-  private parseEpicVerses(content: string): Array<{ reference: string; text: string; lineNumber: number }> {
+  private parseEpicVerses(content: string, filename: string): Array<{ reference: string; text: string; lineNumber: number }> {
     const verses: Array<{ reference: string; text: string; lineNumber: number }> = [];
     const lines = content.split('\n');
 
@@ -131,7 +138,7 @@ export class EpicLogicalUnitExtractor {
       if (ramayanaMatch) {
         const [, book, chapter, verse] = ramayanaMatch;
         reference = `Ram_${book},${chapter}.${verse}`;
-        text = this.extractVerseText(line);
+        text = this.extractVerseText(line, filename);
       } else {
         // For unstructured epic content, create sequential references
         reference = `Verse_${i + 1}`;
@@ -325,26 +332,10 @@ export class EpicLogicalUnitExtractor {
   }
 
   /**
-   * Extract clean verse text (remove references, clean formatting)
+   * Extract clean verse text using boundary-based extraction
    */
-  private extractVerseText(line: string): string {
-    // Handle comment lines with references
-    if (line.startsWith('//')) {
-      // Extract text after reference in comment lines
-      const parts = line.split(/\s+/);
-      const ramIndex = parts.findIndex(part => part.startsWith('Ram_'));
-      if (ramIndex !== -1 && ramIndex < parts.length - 1) {
-        // Join everything after the reference
-        return parts.slice(ramIndex + 1).join(' ').trim();
-      }
-    }
-
-    // Standard processing for non-comment lines
-    return line
-      .replace(/Ram_\d+,\d+\.\d+\s*/, '') // Remove reference
-      .replace(/\/\/.*$/, '') // Remove end comments
-      .replace(/\|\|.*$/, '') // Remove verse endings
-      .trim();
+  private extractVerseText(line: string, scriptureFile: string): string {
+    return this.scripturePatternService.extractVerseText(line, scriptureFile);
   }
 
   /**

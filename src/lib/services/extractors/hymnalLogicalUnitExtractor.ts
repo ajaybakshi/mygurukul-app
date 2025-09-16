@@ -5,6 +5,8 @@
  */
 
 import { GretilTextType } from '../../../types/gretil-types';
+import { BoundaryExtractor } from '../boundaryExtractor';
+import { ScripturePatternService } from '../scripturePatternService';
 
 export interface HymnalUnit {
   sanskrit: string;
@@ -35,6 +37,11 @@ export interface HymnalExtractionOptions {
 }
 
 export class HymnalLogicalUnitExtractor {
+  private scripturePatternService: ScripturePatternService;
+
+  constructor() {
+    this.scripturePatternService = ScripturePatternService.getInstance();
+  }
 
   private readonly DEFAULT_OPTIONS: HymnalExtractionOptions = {
     minVerses: 2,
@@ -76,7 +83,7 @@ export class HymnalLogicalUnitExtractor {
 
     try {
       // Parse content into verses with references
-      const verses = this.parseHymnalVerses(content);
+      const verses = this.parseHymnalVerses(content, filename);
       console.log(`📖 Found ${verses.length} hymnal verses in ${filename}`);
 
       if (verses.length < opts.minVerses) {
@@ -139,7 +146,7 @@ export class HymnalLogicalUnitExtractor {
    * Parse hymnal content into individual verses with references
    * Handles both structured references (RvKh_1,1.1) and unstructured Vedic content
    */
-  private parseHymnalVerses(content: string): Array<{ reference: string; text: string; lineNumber: number }> {
+  private parseHymnalVerses(content: string, filename: string): Array<{ reference: string; text: string; lineNumber: number }> {
     const verses: Array<{ reference: string; text: string; lineNumber: number }> = [];
     const lines = content.split('\n');
 
@@ -186,7 +193,7 @@ export class HymnalLogicalUnitExtractor {
           } else {
             reference = `Hymn_${i + 1}`;
           }
-          text = this.extractVerseText(line);
+          text = this.extractVerseText(line, filename);
           foundPattern = true;
           break;
         }
@@ -490,31 +497,10 @@ export class HymnalLogicalUnitExtractor {
   }
 
   /**
-   * Extract clean verse text (remove references, clean formatting)
+   * Extract clean verse text using scripture-specific patterns
    */
-  private extractVerseText(line: string): string {
-    // Handle comment lines with references
-    if (line.startsWith('//')) {
-      // Extract text after reference in comment lines
-      const parts = line.split(/\s+/);
-      const refIndex = parts.findIndex(part =>
-        /RvKh_|RV_|SV_|YV_/i.test(part)
-      );
-      if (refIndex !== -1 && refIndex < parts.length - 1) {
-        // Join everything after the reference
-        return parts.slice(refIndex + 1).join(' ').trim();
-      }
-    }
-
-    // Standard processing for non-comment lines
-    return line
-      .replace(/RvKh_\d+,\d+\.\d+\s*/i, '') // Remove Rig Veda Khila references
-      .replace(/RV_\d+,\d+\.\d+\s*/i, '')   // Remove Rig Veda references
-      .replace(/SV_\d+,\d+\.\d+\s*/i, '')   // Remove Sama Veda references
-      .replace(/YV_\d+,\d+\.\d+\s*/i, '')   // Remove Yajur Veda references
-      .replace(/\/\/.*$/, '')               // Remove end comments
-      .replace(/\|\|.*$/, '')               // Remove verse endings
-      .trim();
+  private extractVerseText(line: string, scriptureFile: string): string {
+    return this.scripturePatternService.extractVerseText(line, scriptureFile);
   }
 
   /**

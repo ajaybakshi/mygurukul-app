@@ -5,6 +5,8 @@
  */
 
 import { GretilTextType } from '../../../types/gretil-types';
+import { BoundaryExtractor } from '../boundaryExtractor';
+import { ScripturePatternService } from '../scripturePatternService';
 
 export interface NarrativeUnit {
   sanskrit: string;
@@ -35,6 +37,11 @@ export interface NarrativeExtractionOptions {
 }
 
 export class NarrativeLogicalUnitExtractor {
+  private scripturePatternService: ScripturePatternService;
+
+  constructor() {
+    this.scripturePatternService = ScripturePatternService.getInstance();
+  }
 
   private readonly DEFAULT_OPTIONS: NarrativeExtractionOptions = {
     minVerses: 3,
@@ -82,7 +89,7 @@ export class NarrativeLogicalUnitExtractor {
 
     try {
       // Parse content into verses with references
-      const verses = this.parseNarrativeVerses(content);
+      const verses = this.parseNarrativeVerses(content, filename);
       console.log(`📖 Found ${verses.length} narrative verses in ${filename}`);
 
       if (verses.length < opts.minVerses) {
@@ -145,7 +152,7 @@ export class NarrativeLogicalUnitExtractor {
    * Parse narrative content into individual verses with references
    * Handles both structured references (ap_1.001, LiP_1,106.6) and unstructured Puranic content
    */
-  private parseNarrativeVerses(content: string): Array<{ reference: string; text: string; lineNumber: number }> {
+  private parseNarrativeVerses(content: string, filename: string): Array<{ reference: string; text: string; lineNumber: number }> {
     const verses: Array<{ reference: string; text: string; lineNumber: number }> = [];
     const lines = content.split('\n');
 
@@ -166,6 +173,8 @@ export class NarrativeLogicalUnitExtractor {
       const puranicPatterns = [
         // Agni Purana: ap_1.001
         /ap_(\d+)\.(\d+)/i,
+        // Garuda Purana: garp_1,1.31
+        /garp_(\d+),(\d+)\.(\d+)/i,
         // Linga Purana: LiP_1,106.6
         /LiP_(\d+),(\d+)\.(\d+)/i,
         // Vishnu Purana: VP_1.1.1
@@ -185,6 +194,8 @@ export class NarrativeLogicalUnitExtractor {
         if (match) {
           if (pattern.source.includes('ap_')) {
             reference = `ap_${match[1]}.${match[2].padStart(3, '0')}`;
+          } else if (pattern.source.includes('garp_')) {
+            reference = `garp_${match[1]},${match[2]}.${match[3]}`;
           } else if (pattern.source.includes('LiP_')) {
             reference = `LiP_${match[1]},${match[2]}.${match[3]}`;
           } else if (pattern.source.includes('VP_')) {
@@ -196,7 +207,7 @@ export class NarrativeLogicalUnitExtractor {
           } else {
             reference = `Verse_${i + 1}`;
           }
-          text = this.extractVerseText(line);
+          text = this.extractVerseText(line, filename);
           foundPattern = true;
           break;
         }
@@ -232,8 +243,12 @@ export class NarrativeLogicalUnitExtractor {
       /(?:\|\||\/\/)/i                        // Structural separators
     ];
 
-    // Find sequences that appear to be complete stories
-    for (let i = 0; i < verses.length - 3; i++) {
+    // CRITICAL FIX: Start from random position for true content diversity
+    const startIndex = Math.floor(Math.random() * Math.max(1, verses.length - 10));
+    console.log(`🎲 Random starting index for mythological story search: ${startIndex} (out of ${verses.length} verses)`);
+    
+    // Find sequences that appear to be complete stories starting from random position
+    for (let i = startIndex; i < verses.length - 3; i++) {
       const currentVerse = verses[i];
       const hasNarrativeContent = this.NARRATIVE_MARKERS.some(marker => marker.test(currentVerse.text));
       const hasCharacters = this.PURANIC_CHARACTERS.some(char => currentVerse.text.toLowerCase().includes(char));
@@ -286,8 +301,12 @@ export class NarrativeLogicalUnitExtractor {
       /(?:kula|family|dynasty)/i
     ];
 
-    // Find sequences with genealogical content
-    for (let i = 0; i < verses.length - 2; i++) {
+    // CRITICAL FIX: Start from random position for true content diversity
+    const startIndex = Math.floor(Math.random() * Math.max(1, verses.length - 10));
+    console.log(`🎲 Random starting index for genealogical search: ${startIndex} (out of ${verses.length} verses)`);
+    
+    // Find sequences with genealogical content starting from random position
+    for (let i = startIndex; i < verses.length - 2; i++) {
       const currentVerse = verses[i];
       const hasGenealogicalContent = genealogicalMarkers.some(marker => marker.test(currentVerse.text));
 
@@ -507,32 +526,10 @@ export class NarrativeLogicalUnitExtractor {
   }
 
   /**
-   * Extract clean verse text (remove references, clean formatting)
+   * Extract clean verse text using scripture-specific patterns
    */
-  private extractVerseText(line: string): string {
-    // Handle comment lines with references
-    if (line.startsWith('//')) {
-      // Extract text after reference in comment lines
-      const parts = line.split(/\s+/);
-      const refIndex = parts.findIndex(part =>
-        /ap_|LiP_|VP_|SP_|BP_/i.test(part)
-      );
-      if (refIndex !== -1 && refIndex < parts.length - 1) {
-        // Join everything after the reference
-        return parts.slice(refIndex + 1).join(' ').trim();
-      }
-    }
-
-    // Standard processing for non-comment lines
-    return line
-      .replace(/ap_\d+\.\d+/i, '')         // Remove Agni Purana references
-      .replace(/LiP_\d+,\d+\.\d+/i, '')    // Remove Linga Purana references
-      .replace(/VP_\d+\.\d+\.\d+/i, '')    // Remove Vishnu Purana references
-      .replace(/SP_\d+\.\d+\.\d+/i, '')    // Remove Shiva Purana references
-      .replace(/BP_\d+\.\d+\.\d+/i, '')    // Remove Bhagavata Purana references
-      .replace(/\/\/.*$/, '')              // Remove end comments
-      .replace(/\|\|.*$/, '')              // Remove verse endings
-      .trim();
+  private extractVerseText(line: string, scriptureFile: string): string {
+    return this.scripturePatternService.extractVerseText(line, scriptureFile);
   }
 
   /**
@@ -560,6 +557,11 @@ export class NarrativeLogicalUnitExtractor {
           context = {
             book: parseInt(match[1]),
             chapter: Math.floor(parseInt(match[2]) / 100)
+          };
+        } else if (pattern.source.includes('garp_')) {
+          context = {
+            book: parseInt(match[1]),
+            chapter: parseInt(match[2])
           };
         } else if (pattern.source.includes('LiP_')) {
           context = {
@@ -626,7 +628,7 @@ export class NarrativeLogicalUnitExtractor {
     let lastVerseNum: string;
 
     // Handle different reference formats
-    const puranicRefMatch = lastVerseRef.match(/(?:ap|LiP|VP|SP|BP)_(.+)/i);
+    const puranicRefMatch = lastVerseRef.match(/(?:ap|garp|LiP|VP|SP|BP)_(.+)/i);
     if (puranicRefMatch) {
       lastVerseNum = puranicRefMatch[1];
     } else {

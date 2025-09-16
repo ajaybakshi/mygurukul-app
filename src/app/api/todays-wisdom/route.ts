@@ -519,53 +519,105 @@ export async function POST(request: NextRequest) {
   let selectionMethod: 'user-specified' | 'random' | 'cross-corpus' = 'user-specified';
   let selectedSourceInfo: any = null;
 
+  console.log('=== RANDOMIZATION DIAGNOSTIC START ===');
+  console.log('🕐 Request timestamp:', new Date().toISOString());
+
   try {
     const body = await request.json();
+    console.log('📥 Request body:', body);
     
     if (body.sourceName && body.sourceName.trim()) {
       // Traditional single-source selection (backward compatibility)
       sourceName = body.sourceName.trim();
       selectionMethod = 'user-specified';
-      console.log(`Traditional source selection: ${sourceName}`);
+      console.log(`🎯 Traditional source selection: ${sourceName}`);
+      console.log(`📋 Selection reason: User explicitly requested ${sourceName}`);
     } else {
       // New GCS-first intelligent selection using gretilWisdomService
-      console.log('Using GCS-first selection...');
+      console.log('🔄 Using GCS-first selection...');
+      console.log('📡 Calling gretilWisdomService.getAllAvailableGretilSources()...');
+      
       const gretilSources = await gretilWisdomService.getAllAvailableGretilSources();
       
+      console.log('📊 Available sources count:', gretilSources.length);
+      console.log('📋 Available sources:', gretilSources.map(s => s.folderName));
+      console.log('📋 Source details:', gretilSources.map(s => ({
+        folder: s.folderName,
+        display: s.displayName,
+        category: s.category
+      })));
+      
       if (gretilSources.length > 0) {
-        const randomSource = gretilSources[Math.floor(Math.random() * gretilSources.length)];
+        const randomIndex = Math.floor(Math.random() * gretilSources.length);
+        const randomSource = gretilSources[randomIndex];
+        
+        console.log(`🎲 Random selection: index ${randomIndex} from ${gretilSources.length} sources`);
+        console.log(`🎯 Selected source: ${randomSource.folderName}`);
+        console.log(`📋 Source metadata:`, {
+          displayName: randomSource.displayName,
+          category: randomSource.category,
+          textType: randomSource.textType
+        });
+        
         sourceName = randomSource.folderName;
         selectedSourceInfo = {
           folderName: randomSource.folderName,
           displayName: randomSource.displayName,
           category: randomSource.category,
-          selectionReason: 'random-gcs-selection'
+          selectionReason: 'random-gcs-selection',
+          randomIndex: randomIndex,
+          totalSources: gretilSources.length
         };
         selectionMethod = 'cross-corpus';
-        console.log(`GCS-first selection: ${selectedSourceInfo.displayName} from ${selectedSourceInfo.category}`);
+        console.log(`✅ GCS-first selection complete: ${selectedSourceInfo.displayName} from ${selectedSourceInfo.category}`);
       } else {
         sourceName = 'Bhagvad_Gita';
         selectionMethod = 'user-specified';
+        console.log('⚠️ No GCS sources available, using fallback: Bhagvad_Gita');
+        console.log('📋 Fallback reason: No sources returned from gretilWisdomService');
       }
     }
     
     if (!sourceName) {
-      console.log('No source selected, using fallback');
+      console.log('⚠️ No source selected, using fallback');
       sourceName = 'Ramayana';
       selectionMethod = 'user-specified';
+      console.log('📋 Final fallback reason: No source name determined');
     }
     
   } catch (requestError) {
-    console.error('Error processing wisdom request:', requestError);
+    console.error('❌ Error processing wisdom request:', requestError);
     sourceName = 'Ramayana';
     selectionMethod = 'user-specified';
+    console.log('📋 Error fallback: Using Ramayana due to request processing error');
   }
+
+  console.log('🎯 FINAL SELECTION SUMMARY:');
+  console.log('  Selected source:', sourceName);
+  console.log('  Selection method:', selectionMethod);
+  console.log('  Selected source info:', selectedSourceInfo);
+  console.log('  Selection timestamp:', new Date().toISOString());
 
   try {
     console.log(`Today's Wisdom request for source: ${sourceName}`);
     
+    // Before calling wisdom service
+    console.log('Calling wisdom service with source:', sourceName);
+    
     // Use GCS-first approach with gretilWisdomService
     const extractedWisdom = await gretilWisdomService.extractWisdomFromGretilSource(sourceName);
+    
+    // After getting wisdom
+    console.log('Wisdom extraction result:', {
+      title: extractedWisdom?.metadata?.title,
+      sourceMetadata: extractedWisdom?.metadata,
+      verseReference: extractedWisdom?.reference,
+      extractionMethod: extractedWisdom?.metadata?.textType,
+      logicalUnitType: extractedWisdom?.metadata?.enhancedTextType,
+      textName: extractedWisdom?.textName,
+      category: extractedWisdom?.category,
+      estimatedVerses: extractedWisdom?.estimatedVerses
+    });
     
     if (!extractedWisdom) {
       throw new Error(`No wisdom extracted from source ${sourceName}`);
@@ -657,8 +709,11 @@ export async function POST(request: NextRequest) {
     // Get available sources for frontend dropdown using GCS-first approach
     const gretilSources = await gretilWisdomService.getAllAvailableGretilSources();
     const availableSources = gretilSources.map(source => source.folderName);
+    
+    console.log('Available sources for frontend:', availableSources);
+    console.log('Total available sources:', availableSources.length);
 
-    return NextResponse.json({
+    const responseData = {
       success: true,
       todaysWisdom: todaysWisdom,
       selectedSource: sourceName,
@@ -672,7 +727,18 @@ export async function POST(request: NextRequest) {
       message: selectionMethod === 'cross-corpus' ? 
         `Wisdom selected from ${selectedSourceInfo?.displayName || sourceName} using intelligent cross-corpus selection` :
         `Wisdom from ${sourceName} as specifically requested`
+    };
+
+    console.log('=== RANDOMIZATION DIAGNOSTIC END ===');
+    console.log('Final response data:', {
+      success: responseData.success,
+      selectedSource: responseData.selectedSource,
+      selectionMethod: responseData.selectionMethod,
+      totalAvailableSources: responseData.totalAvailableSources,
+      message: responseData.message
     });
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
     console.error('Today\'s Wisdom API error:', error);

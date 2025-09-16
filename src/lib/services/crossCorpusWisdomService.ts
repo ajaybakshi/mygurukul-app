@@ -88,7 +88,11 @@ class CrossCorpusWisdomService {
   // Intelligent source selection using existing corpus infrastructure
   async selectWisdomSource(options: CrossCorpusWisdomOptions = {}): Promise<SelectedCorpusSource> {
     try {
+      console.log('=== CROSS-CORPUS DIAGNOSTIC ===');
+      console.log('User preference:', options.userPreference);
+      
       const availableSources = await this.getAllAvailableSources();
+      console.log('Available folder count:', availableSources.length);
       
       // If user specified a preference, try to honor it
       if (options.userPreference && options.userPreference !== 'random') {
@@ -96,6 +100,8 @@ class CrossCorpusWisdomService {
           source.toLowerCase().includes(options.userPreference.toLowerCase())
         );
         if (preferredSource) {
+          console.log('Selected folder:', preferredSource);
+          console.log('Selection algorithm used:', 'user-specified');
           return {
             folderName: preferredSource,
             displayName: this.formatDisplayName(preferredSource),
@@ -122,6 +128,9 @@ class CrossCorpusWisdomService {
       // Random selection with optional weighting
       const selectedSource = this.selectWithDiversity(candidateSources, options.diversityMode);
       
+      console.log('Selected folder:', selectedSource);
+      console.log('Selection algorithm used:', options.diversityMode || 'balanced');
+      
       return {
         folderName: selectedSource,
         displayName: this.formatDisplayName(selectedSource),
@@ -132,6 +141,8 @@ class CrossCorpusWisdomService {
       
     } catch (error) {
       console.error('Error selecting wisdom source:', error);
+      console.log('Selected folder:', 'ramayana');
+      console.log('Selection algorithm used:', 'fallback');
       return {
         folderName: 'ramayana',
         displayName: 'Ramayana',
@@ -145,6 +156,7 @@ class CrossCorpusWisdomService {
   // Helper methods
   private selectWithDiversity(sources: string[], mode: string = 'balanced'): string {
     const randomIndex = Math.floor(Math.random() * sources.length);
+    console.log(`Diversity selection: ${sources.length} candidates, mode: ${mode}, random index: ${randomIndex}`);
     return sources[randomIndex];
   }
   
