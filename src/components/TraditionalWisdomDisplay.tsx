@@ -1,63 +1,24 @@
 'use client';
 import React from 'react';
 
-interface EnhancedRawTextAnnotation {
-  // Primary Information
-  textName: string;
-  tradition: string;
-  chapter: string;
-  section: string;
-
-  // Context Information
-  spiritualTheme: string;
-  characters?: string[];
-  location?: string;
-
-  // Cultural Context
-  historicalPeriod?: string;
-  literaryGenre: string;
-
-  // Reference Information (for scholars)
-  technicalReference?: string;
-  estimatedAge?: string;
-
-  // Legacy fields for backward compatibility
-  theme?: string;
-  source?: string;
-
-  // Gretil Metadata Integration
-  gretilMetadata?: {
-    title: string;
-    dataEntry?: string;
-    contribution?: string;
-    dateVersion?: string;
-    source?: string;
-    publisher?: string;
-    licence?: string;
-    referenceStructure?: string;
-    notes?: string;
-    revisions?: string;
-    originalUrl?: string;
-    chapterInfo?: {
-      book?: number;
-      chapter: number;
-      section?: number;
-    };
-    verseNumber?: {
-      verse: number;
-      subVerse?: string;
-      fullReference: string;
-    };
-    citationFormat?: string;
-    textType?: string;
-    timePeriod?: string;
-    hasCommentary?: boolean;
-  };
-}
-
 interface WisdomData {
   rawText: string;
-  rawTextAnnotation: EnhancedRawTextAnnotation;
+  rawTextAnnotation: {
+    chapter: string;
+    section: string;
+    source: string;
+    characters?: string;
+    location?: string;
+    theme?: string;
+    technicalReference?: string; // Scholarly reference like 'Ram_2,40.20'
+    logicalUnitType?: 'Epic' | 'Philosophical' | 'Dialogue' | 'Hymnal' | 'Narrative'; // Logical unit type
+    extractionMethod?: 'narrative-sequence' | 'commentary-unit' | 'dialogue-exchange' | 'verse-unit' | 'thematic-unit'; // How it was extracted
+    verseRange?: {
+      start: string;
+      end: string;
+      count: number;
+    };
+  };
   wisdom: string;
   context: string;
   type: 'story' | 'verse' | 'teaching';
@@ -70,7 +31,50 @@ interface Props {
   isLoading?: boolean;
 }
 
+// Helper function to get logical unit type indicator
+const getLogicalUnitIndicator = (logicalUnitType?: string) => {
+  const typeMap = {
+    'Epic': { emoji: '📖', label: 'Epic', color: 'from-orange-500 to-red-500', bgColor: 'bg-gradient-to-r from-orange-50 to-red-50' },
+    'Philosophical': { emoji: '🕉️', label: 'Philosophical', color: 'from-purple-500 to-indigo-500', bgColor: 'bg-gradient-to-r from-purple-50 to-indigo-50' },
+    'Dialogue': { emoji: '💬', label: 'Dialogue', color: 'from-blue-500 to-cyan-500', bgColor: 'bg-gradient-to-r from-blue-50 to-cyan-50' },
+    'Hymnal': { emoji: '🎵', label: 'Hymnal', color: 'from-green-500 to-emerald-500', bgColor: 'bg-gradient-to-r from-green-50 to-emerald-50' },
+    'Narrative': { emoji: '📚', label: 'Narrative', color: 'from-amber-500 to-yellow-500', bgColor: 'bg-gradient-to-r from-amber-50 to-yellow-50' }
+  };
+
+  const defaultType = { emoji: '📜', label: 'Scripture', color: 'from-gray-500 to-gray-600', bgColor: 'bg-gradient-to-r from-gray-50 to-gray-100' };
+
+  return logicalUnitType ? (typeMap[logicalUnitType as keyof typeof typeMap] || defaultType) : defaultType;
+};
+
+// Helper function to format verse range
+const formatVerseRange = (verseRange?: { start: string; end: string; count: number }) => {
+  if (!verseRange) return null;
+
+  if (verseRange.start === verseRange.end) {
+    return `Verse ${verseRange.start}`;
+  }
+
+  return `${verseRange.start}-${verseRange.end} (${verseRange.count} verses)`;
+};
+
+// Helper function to format extraction method
+const formatExtractionMethod = (method?: string) => {
+  const methodMap = {
+    'narrative-sequence': 'Narrative Sequence',
+    'commentary-unit': 'Commentary Unit',
+    'dialogue-exchange': 'Dialogue Exchange',
+    'verse-unit': 'Verse Unit',
+    'thematic-unit': 'Thematic Unit'
+  };
+
+  return method ? (methodMap[method as keyof typeof methodMap] || method.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())) : null;
+};
+
 export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false }: Props) {
+  const logicalUnitIndicator = getLogicalUnitIndicator(wisdomData.rawTextAnnotation.logicalUnitType);
+  const verseRangeDisplay = formatVerseRange(wisdomData.rawTextAnnotation.verseRange);
+  const extractionMethodDisplay = formatExtractionMethod(wisdomData.rawTextAnnotation.extractionMethod);
+
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto p-6 space-y-8">
@@ -91,7 +95,7 @@ export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false
       {/* Sacred Header */}
       <div className="text-center border-b border-amber-300 pb-4">
         <div className="text-amber-600 text-sm font-medium mb-2">
-          🕉️ Today&apos;s Sacred Reading 🕉️
+          🕉️ Today's Sacred Reading 🕉️
         </div>
         <h1 className="text-2xl font-bold text-gray-800">
           {wisdomData.sourceName} Daily Wisdom
@@ -99,135 +103,83 @@ export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false
       </div>
 
       {/* Part 1: Raw Sacred Text */}
-      <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-l-4 border-amber-400 rounded-lg p-6 shadow-lg">
+      <div className={`bg-gradient-to-br ${logicalUnitIndicator.bgColor} border-l-4 border-amber-400 rounded-lg p-6 shadow-lg`}>
         <div className="flex items-center mb-4">
-          <div className="text-amber-700 text-lg font-semibold">📜 Sacred Text</div>
+          <div className="flex items-center space-x-3">
+            <div className="text-2xl">{logicalUnitIndicator.emoji}</div>
+            <div className={`text-lg font-semibold bg-gradient-to-r ${logicalUnitIndicator.color} bg-clip-text text-transparent`}>
+              {logicalUnitIndicator.label} Text
+            </div>
+          </div>
           <div className="ml-auto text-sm text-amber-600">Original Scripture</div>
         </div>
         
-        {/* Enhanced Sacred Text Context */}
-        <div className="bg-white bg-opacity-60 rounded p-4 mb-4 space-y-3">
-          {/* Primary Source Information */}
-          <div className="border-b border-amber-200 pb-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold text-amber-900">{wisdomData.rawTextAnnotation.textName}</h3>
-              <span className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded-full">
-                {wisdomData.rawTextAnnotation.estimatedAge || 'Ancient Wisdom'}
-              </span>
-            </div>
-            <p className="text-sm text-amber-700 italic">{wisdomData.rawTextAnnotation.tradition}</p>
-            <p className="text-xs text-gray-600 mt-1">{wisdomData.rawTextAnnotation.literaryGenre} • {wisdomData.rawTextAnnotation.historicalPeriod}</p>
-          </div>
-          
-          {/* Chapter and Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Chapter and Section Annotation */}
+        <div className="bg-white bg-opacity-60 rounded p-3 mb-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div>
-              <span className="font-medium text-amber-800">📖 Chapter:</span>
-              <div className="ml-4 text-gray-700 text-sm">{wisdomData.rawTextAnnotation.chapter}</div>
+              <span className="font-medium text-amber-800">Chapter:</span>
+              <span className="ml-2 text-gray-700">{wisdomData.rawTextAnnotation.chapter}</span>
             </div>
             <div>
-              <span className="font-medium text-amber-800">📜 Section:</span>
-              <div className="ml-4 text-gray-700 text-sm">{wisdomData.rawTextAnnotation.section}</div>
+              <span className="font-medium text-amber-800">Section:</span>
+              <span className="ml-2 text-gray-700">{wisdomData.rawTextAnnotation.section}</span>
+            </div>
+            <div>
+              <span className="font-medium text-amber-800">Theme:</span>
+              <span className="ml-2 text-gray-700">{wisdomData.rawTextAnnotation.theme || 'Spiritual Growth'}</span>
             </div>
           </div>
-          
-          {/* Spiritual Theme */}
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded p-3">
-            <span className="font-medium text-amber-800">🌟 Spiritual Theme:</span>
-            <div className="ml-4 text-gray-700 text-sm font-medium">{wisdomData.rawTextAnnotation.spiritualTheme}</div>
-          </div>
-          
-          {/* Characters and Location */}
-          {(wisdomData.rawTextAnnotation.characters || wisdomData.rawTextAnnotation.location) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-amber-200">
-              {wisdomData.rawTextAnnotation.characters && (
-                <div>
-                  <span className="font-medium text-amber-800">👑 Characters:</span>
-                  <div className="ml-4 text-gray-700 text-sm">
-                    {Array.isArray(wisdomData.rawTextAnnotation.characters) 
-                      ? wisdomData.rawTextAnnotation.characters.join(', ')
-                      : wisdomData.rawTextAnnotation.characters}
-                  </div>
-                </div>
-              )}
-              {wisdomData.rawTextAnnotation.location && (
-                <div>
-                  <span className="font-medium text-amber-800">🏛️ Setting:</span>
-                  <div className="ml-4 text-gray-700 text-sm">{wisdomData.rawTextAnnotation.location}</div>
-                </div>
-              )}
+          {wisdomData.rawTextAnnotation.characters && (
+            <div className="mt-2">
+              <span className="font-medium text-amber-800">Characters:</span>
+              <span className="ml-2 text-gray-700">{wisdomData.rawTextAnnotation.characters}</span>
             </div>
           )}
-          
-          {/* Progressive Disclosure for Technical Details */}
-          {wisdomData.rawTextAnnotation.technicalReference && (
-            <details className="text-xs text-gray-500 cursor-pointer">
-              <summary className="hover:text-gray-700">📚 Scholar Reference</summary>
-              <div className="mt-1 ml-4 font-mono text-gray-400">
-                {wisdomData.rawTextAnnotation.technicalReference}
-              </div>
-            </details>
+          {wisdomData.rawTextAnnotation.location && (
+            <div className="mt-1">
+              <span className="font-medium text-amber-800">Location:</span>
+              <span className="ml-2 text-gray-700">{wisdomData.rawTextAnnotation.location}</span>
+            </div>
           )}
 
-          {/* Gretil Metadata Display */}
-          {wisdomData.rawTextAnnotation.gretilMetadata && (
-            <div className="mt-4 p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded border border-amber-200">
-              <details className="cursor-pointer">
-                <summary className="text-sm font-medium text-amber-800 hover:text-amber-900 flex items-center">
-                  📜 Source Metadata
-                  {wisdomData.rawTextAnnotation.gretilMetadata.verseNumber && (
-                    <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
-                      Verse {wisdomData.rawTextAnnotation.gretilMetadata.verseNumber.fullReference}
-                    </span>
-                  )}
-                </summary>
-                <div className="mt-3 space-y-2 text-xs text-amber-700">
-                  {wisdomData.rawTextAnnotation.gretilMetadata.title && (
-                    <div><strong>Title:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.title}</div>
-                  )}
-                  {wisdomData.rawTextAnnotation.gretilMetadata.textType && (
-                    <div><strong>Text Type:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.textType}</div>
-                  )}
-                  {wisdomData.rawTextAnnotation.gretilMetadata.timePeriod && (
-                    <div><strong>Time Period:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.timePeriod}</div>
-                  )}
-                  {wisdomData.rawTextAnnotation.gretilMetadata.contribution && (
-                    <div><strong>Contributor:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.contribution}</div>
-                  )}
-                  {wisdomData.rawTextAnnotation.gretilMetadata.source && (
-                    <div><strong>Source:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.source}</div>
-                  )}
-                  {wisdomData.rawTextAnnotation.gretilMetadata.citationFormat && (
-                    <div><strong>Citation Format:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.citationFormat}</div>
-                  )}
-                  {wisdomData.rawTextAnnotation.gretilMetadata.hasCommentary && (
-                    <div><strong>Note:</strong> Includes scholarly commentary</div>
-                  )}
-                  {wisdomData.rawTextAnnotation.gretilMetadata.licence && (
-                    <div><strong>License:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.licence}</div>
-                  )}
-                  {wisdomData.rawTextAnnotation.gretilMetadata.referenceStructure && (
-                    <div><strong>Reference Structure:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.referenceStructure}</div>
-                  )}
-                  {wisdomData.rawTextAnnotation.gretilMetadata.chapterInfo && (
-                    <div>
-                      <strong>Location:</strong> Chapter {wisdomData.rawTextAnnotation.gretilMetadata.chapterInfo.chapter}
-                      {wisdomData.rawTextAnnotation.gretilMetadata.chapterInfo.book && ` (Book ${wisdomData.rawTextAnnotation.gretilMetadata.chapterInfo.book})`}
-                      {wisdomData.rawTextAnnotation.gretilMetadata.chapterInfo.section && `, Section ${wisdomData.rawTextAnnotation.gretilMetadata.chapterInfo.section}`}
-                    </div>
-                  )}
-                  {wisdomData.rawTextAnnotation.gretilMetadata.dateVersion && (
-                    <div><strong>Version:</strong> {wisdomData.rawTextAnnotation.gretilMetadata.dateVersion}</div>
-                  )}
-                </div>
-              </details>
-            </div>
-          )}
+          {/* Enhanced Reference Display */}
+          <div className="mt-2 pt-2 border-t border-amber-200 space-y-2">
+            {/* Technical Reference */}
+            {wisdomData.rawTextAnnotation.technicalReference && (
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="font-medium text-amber-800">Reference:</span>
+                <span className="font-mono text-sm bg-amber-100 px-2 py-1 rounded text-amber-900">
+                  {wisdomData.rawTextAnnotation.technicalReference}
+                </span>
+              </div>
+            )}
+
+            {/* Verse Range */}
+            {verseRangeDisplay && (
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="font-medium text-amber-800">Range:</span>
+                <span className="text-sm bg-blue-100 px-2 py-1 rounded text-blue-800">
+                  {verseRangeDisplay}
+                </span>
+              </div>
+            )}
+
+            {/* Extraction Method */}
+            {extractionMethodDisplay && (
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="font-medium text-amber-800">Method:</span>
+                <span className="text-sm bg-green-100 px-2 py-1 rounded text-green-800">
+                  {extractionMethodDisplay}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Raw Sacred Text */}
         <div className="text-gray-800 leading-relaxed text-lg font-medium bg-white bg-opacity-40 p-4 rounded italic border-l-2 border-amber-300">
-          &ldquo;{wisdomData.rawText}&rdquo;
+          "{wisdomData.rawText}"
         </div>
       </div>
 
@@ -235,7 +187,7 @@ export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false
       <div className="text-center py-4">
         <div className="inline-flex items-center space-x-3">
           <div className="h-px bg-amber-300 w-16"></div>
-          <div className="text-amber-600 font-medium">🙏 Guru&apos;s Interpretation 🙏</div>
+          <div className="text-amber-600 font-medium">🙏 Guru's Interpretation 🙏</div>
           <div className="h-px bg-amber-300 w-16"></div>
         </div>
       </div>
@@ -267,3 +219,4 @@ export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false
     </div>
   );
 }
+
