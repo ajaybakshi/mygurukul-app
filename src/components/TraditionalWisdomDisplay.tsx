@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import AudioIconButton from './audio/AudioIconButton';
 
 interface WisdomData {
   rawText: string;
@@ -177,9 +178,24 @@ export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false
           </div>
         </div>
 
-        {/* Raw Sacred Text */}
-        <div className="text-gray-800 leading-relaxed text-lg font-medium bg-white bg-opacity-40 p-4 rounded italic border-l-2 border-amber-300">
-          "{wisdomData.rawText}"
+        {/* Raw Sacred Text with Audio Control */}
+        <div className="relative">
+          <div className="text-gray-800 leading-relaxed text-lg font-medium bg-white bg-opacity-40 p-4 rounded italic border-l-2 border-amber-300">
+            "{wisdomData.rawText}"
+          </div>
+          
+          {/* Audio control - positioned subtly in top-right corner */}
+          <div className="absolute top-2 right-2">
+            <AudioIconButton
+              text={wisdomData.rawText}
+              language="sanskrit"
+              size="sm"
+              variant="primary"
+              onPlayStart={() => console.log('Playing sacred text audio')}
+              onPlayEnd={() => console.log('Sacred text audio finished')}
+              onError={(error) => console.error('Audio error:', error)}
+            />
+          </div>
         </div>
       </div>
 
@@ -196,7 +212,19 @@ export default function TraditionalWisdomDisplay({ wisdomData, isLoading = false
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-l-4 border-blue-400 rounded-lg p-6 shadow-lg">
         <div className="flex items-center mb-4">
           <div className="text-blue-700 text-lg font-semibold">🌟 Spiritual Guidance</div>
-          <div className="ml-auto text-sm text-blue-600">Enhanced Wisdom</div>
+          <div className="ml-auto flex items-center space-x-3">
+            <div className="text-sm text-blue-600">Enhanced Wisdom</div>
+            {/* Audio control for wisdom interpretation */}
+            <AudioIconButton
+              text={wisdomData.wisdom}
+              language="english"
+              size="sm"
+              variant="secondary"
+              onPlayStart={() => console.log('Playing wisdom interpretation audio')}
+              onPlayEnd={() => console.log('Wisdom interpretation audio finished')}
+              onError={(error) => console.error('Audio error:', error)}
+            />
+          </div>
         </div>
 
         <div className="text-gray-800 leading-relaxed space-y-4">
