@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCw, MessageSquare } from 'lucide-react';
 import { useTabContext } from '@/contexts/TabContext';
 import AudioIconButton from '@/components/audio/AudioIconButton';
+import { TransliterationService } from '@/lib/services/transliterationService';
 
 // Client-side only date component to avoid hydration mismatches
 const ClientDate: React.FC = () => {
@@ -318,7 +319,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
           </div>
           
           {/* User Source Selection Dropdown - Progressive Disclosure */}
-          <div className="mt-6 mb-4">
+          <div className="mt-6 mb-4 hidden">
             <label className="block text-sm font-medium text-gray-700 mb-2 text-center">
               📜 Choose Your Source (Optional)
             </label>
@@ -450,46 +451,36 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
                     )}
                   </div>
                   
-                  {/* Chapter and Section Annotation */}
-                  <div className="bg-white/70 rounded-lg p-4 mb-6 shadow-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div className="text-center">
-                        <span className="font-semibold text-amber-800 block mb-1">Chapter</span>
-                        <span className="text-gray-700">{todaysWisdom.rawTextAnnotation.chapter}</span>
-                      </div>
-                      <div className="text-center">
-                        <span className="font-semibold text-amber-800 block mb-1">Section</span>
-                        <span className="text-gray-700">{todaysWisdom.rawTextAnnotation.section}</span>
-                      </div>
-                      <div className="text-center">
-                        <span className="font-semibold text-amber-800 block mb-1">Theme</span>
-                        <span className="text-gray-700">{todaysWisdom.rawTextAnnotation.theme || 'Spiritual Growth'}</span>
-                      </div>
-                    </div>
-                    
-                    {todaysWisdom.rawTextAnnotation.characters && (
-                      <div className="mt-4 text-center">
-                        <span className="font-semibold text-amber-800">Characters: </span>
-                        <span className="text-gray-700">{todaysWisdom.rawTextAnnotation.characters}</span>
-                      </div>
-                    )}
-                    
-                    {todaysWisdom.rawTextAnnotation.location && (
-                      <div className="mt-2 text-center">
-                        <span className="font-semibold text-amber-800">Location: </span>
-                        <span className="text-gray-700">{todaysWisdom.rawTextAnnotation.location}</span>
-                      </div>
-                    )}
-                  </div>
-
                   {/* Sacred Text with Audio Control */}
-                  <div className="relative bg-white/60 p-6 rounded-lg border-l-4 border-amber-300 shadow-sm">
-                    <div className="text-gray-800 leading-relaxed text-lg font-serif italic text-center">
+                  <div 
+                    className="relative p-6 rounded-lg border-l-4 border-amber-300 shadow-lg overflow-hidden"
+                    style={{
+                      backgroundImage: 'url("data:image/svg+xml,' + 
+                        '%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 800 200\'%3E' +
+                        '%3Cdefs%3E%3ClinearGradient id=\'scroll\' x1=\'0%25\' y1=\'0%25\' x2=\'100%25\' y2=\'0%25\'%3E' +
+                        '%3Cstop offset=\'0%25\' style=\'stop-color:%23f4e5b8;stop-opacity:0.9\'/%3E' +
+                        '%3Cstop offset=\'5%25\' style=\'stop-color:%23f7ead0;stop-opacity:0.95\'/%3E' +
+                        '%3Cstop offset=\'95%25\' style=\'stop-color:%23f7ead0;stop-opacity:0.95\'/%3E' +
+                        '%3Cstop offset=\'100%25\' style=\'stop-color:%23f4e5b8;stop-opacity:0.9\'/%3E' +
+                        '%3C/linearGradient%3E%3C/defs%3E' +
+                        '%3Crect width=\'800\' height=\'200\' fill=\'url(%23scroll)\'/%3E' +
+                        '%3Cpath d=\'M0,10 Q20,5 40,10 T80,10 T120,10 T160,10 T200,10 T240,10 T280,10 T320,10 T360,10 T400,10 T440,10 T480,10 T520,10 T560,10 T600,10 T640,10 T680,10 T720,10 T760,10 T800,10\' stroke=\'%23d4b896\' stroke-width=\'0.5\' fill=\'none\' opacity=\'0.4\'/%3E' +
+                        '%3Cpath d=\'M0,190 Q20,185 40,190 T80,190 T120,190 T160,190 T200,190 T240,190 T280,190 T320,190 T360,190 T400,190 T440,190 T480,190 T520,190 T560,190 T600,190 T640,190 T680,190 T720,190 T760,190 T800,190\' stroke=\'%23d4b896\' stroke-width=\'0.5\' fill=\'none\' opacity=\'0.4\'/%3E' +
+                        '%3C/svg%3E")',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center'
+                    }}
+                  >
+                    {/* Text overlay for readability */}
+                    <div className="absolute inset-0 bg-white/40 rounded-lg"></div>
+                    
+                    {/* Content */}
+                    <div className="relative z-10 text-gray-800 leading-relaxed text-lg font-serif italic text-center drop-shadow-sm">
                       "{todaysWisdom.rawText}"
                     </div>
                     
                     {/* Audio control - positioned in top-right corner */}
-                    <div className="absolute top-2 right-2">
+                    <div className="absolute top-2 right-2 z-20">
                       <AudioIconButton
                         text={todaysWisdom.rawText}
                         language="sanskrit"
@@ -498,6 +489,63 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
                         onPlayStart={() => console.log('Playing sacred text audio')}
                         onPlayEnd={() => console.log('Sacred text audio finished')}
                         onError={(error) => console.error('Audio error:', error)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Sanskrit Devanagari Section */}
+                  <div 
+                    className="relative p-6 rounded-lg border-l-4 border-orange-300 shadow-lg mt-4 overflow-hidden"
+                    style={{
+                      backgroundImage: 'url("data:image/svg+xml,' + 
+                        '%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 800 200\'%3E' +
+                        '%3Cdefs%3E%3ClinearGradient id=\'scrollAmber\' x1=\'0%25\' y1=\'0%25\' x2=\'100%25\' y2=\'0%25\'%3E' +
+                        '%3Cstop offset=\'0%25\' style=\'stop-color:%23f4d03f;stop-opacity:0.8\'/%3E' +
+                        '%3Cstop offset=\'5%25\' style=\'stop-color:%23f9e79f;stop-opacity:0.9\'/%3E' +
+                        '%3Cstop offset=\'95%25\' style=\'stop-color:%23f9e79f;stop-opacity:0.9\'/%3E' +
+                        '%3Cstop offset=\'100%25\' style=\'stop-color:%23f4d03f;stop-opacity:0.8\'/%3E' +
+                        '%3C/linearGradient%3E%3C/defs%3E' +
+                        '%3Crect width=\'800\' height=\'200\' fill=\'url(%23scrollAmber)\'/%3E' +
+                        '%3Cpath d=\'M0,10 Q20,5 40,10 T80,10 T120,10 T160,10 T200,10 T240,10 T280,10 T320,10 T360,10 T400,10 T440,10 T480,10 T520,10 T560,10 T600,10 T640,10 T680,10 T720,10 T760,10 T800,10\' stroke=\'%23d68910\' stroke-width=\'0.5\' fill=\'none\' opacity=\'0.4\'/%3E' +
+                        '%3Cpath d=\'M0,190 Q20,185 40,190 T80,190 T120,190 T160,190 T200,190 T240,190 T280,190 T320,190 T360,190 T400,190 T440,190 T480,190 T520,190 T560,190 T600,190 T640,190 T680,190 T720,190 T760,190 T800,190\' stroke=\'%23d68910\' stroke-width=\'0.5\' fill=\'none\' opacity=\'0.4\'/%3E' +
+                        '%3C/svg%3E")',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center'
+                    }}
+                  >
+                    {/* Text overlay for readability */}
+                    <div className="absolute inset-0 bg-amber-50/50 rounded-lg"></div>
+                    
+                    {/* Header */}
+                    <div className="relative z-10 text-center mb-3">
+                      <h3 className="text-amber-800 font-semibold text-sm drop-shadow-sm">
+                        🕉️ Sanskrit (Devanagari)
+                      </h3>
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="relative z-10 text-gray-800 leading-relaxed text-xl font-serif text-center drop-shadow-sm" style={{ fontFamily: 'Noto Sans Devanagari, serif' }}>
+                      "{TransliterationService.transliterate(todaysWisdom.rawText, {
+                        devanagariPreferred: true,
+                        preserveNumbers: true,
+                        handleMixed: true
+                      }).result}"
+                    </div>
+                    
+                    {/* Audio control for Sanskrit */}
+                    <div className="absolute top-2 right-2 z-20">
+                      <AudioIconButton
+                        text={TransliterationService.transliterate(todaysWisdom.rawText, {
+                          devanagariPreferred: true,
+                          preserveNumbers: true,
+                          handleMixed: true
+                        }).result}
+                        language="sanskrit"
+                        size="sm"
+                        variant="secondary"
+                        onPlayStart={() => console.log('Playing Sanskrit Devanagari audio')}
+                        onPlayEnd={() => console.log('Sanskrit Devanagari audio finished')}
+                        onError={(error) => console.error('Sanskrit audio error:', error)}
                       />
                     </div>
                   </div>
