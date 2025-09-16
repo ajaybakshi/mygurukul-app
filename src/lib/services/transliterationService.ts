@@ -68,12 +68,7 @@ const IAST_TO_DEVANAGARI_MAP: Record<string, string> = {
   'h': 'ह',
   
   // Special characters
-  'ṃ': 'ं', 'ḥ': 'ः', '|': '।', '||': '॥',
-  
-  // Vowel marks (mātrās)
-  'ā': 'ा', 'i': 'ि', 'ī': 'ी', 'u': 'ु', 'ū': 'ू',
-  'ṛ': 'ृ', 'ṝ': 'ॄ', 'ḷ': 'ॢ', 'ḹ': 'ॣ',
-  'e': 'े', 'ai': 'ै', 'o': 'ो', 'au': 'ौ'
+  'ṃ': 'ं', 'ḥ': 'ः', '|': '।', '||': '॥'
 };
 
 /**
@@ -310,6 +305,9 @@ export class TransliterationService {
       // Use sanscript library for accurate transliteration
       let result = sanscript.t(text, 'iast', 'devanagari');
       
+      // Fix known sanscript library issues
+      result = this.fixSanscriptIssues(result);
+      
       // Preserve numbers if requested
       if (options.preserveNumbers) {
         result = this.restoreNumbers(result, text);
@@ -324,6 +322,23 @@ export class TransliterationService {
       // Fallback to custom logic if sanscript fails
       return this.fallbackTransliteration(text, options);
     }
+  }
+
+  /**
+   * Fix known issues with sanscript library transliteration
+   */
+  private fixSanscriptIssues(result: string): string {
+    // Fix ḷ character issue - sanscript produces ऌ instead of ळ
+    result = result.replace(/ऌ/g, 'ळ');
+    
+    // Fix e vowel mark issue - sanscript sometimes produces ए instead of े
+    // This happens when e follows a consonant with a hyphen
+    result = result.replace(/ळए/g, 'ळे');
+    
+    // Fix other known issues if any
+    // Add more fixes as needed
+    
+    return result;
   }
 
   /**
