@@ -4,7 +4,7 @@
  * Preserves scholarly integrity while optimizing for speech synthesis
  */
 
-import { ScripturePatternService } from './scripturePatternService.js';
+import { ScripturePatternService } from './scripturePatternService';
 
 export interface CleanupOptions {
   keepDandaForProsody: boolean; // Config flag for recitation style
@@ -143,22 +143,56 @@ export class SanskritCleanupService {
 
   /**
    * Extract canonical reference before cleaning
+   * Handles patterns like: garp1,1.31, krmp2,15.4, bhg_2,40.20, RvKh1.1.1, chup6.8.7
    */
   private extractCanonicalReference(text: string, scriptureFile: string): string | undefined {
-    const scriptureConfig = this.scriptureService.getScriptureConfig(scriptureFile);
-    if (!scriptureConfig) return undefined;
+    // Comprehensive regex patterns to match canonical references
+    // Must contain numbers to be considered a canonical reference
+    const canonicalPatterns = [
+      // Pattern 1: word_optionalNumbers,numbers.numbers (e.g., bhg_2,40.20, garp1,1.31)
+      /([a-zA-Z]+(?:_\d+)?,\d+\.\d+)/g,
+      // Pattern 2: wordNumbers,numbers.numbers (e.g., krmp2,15.4)
+      /([a-zA-Z]+\d+,\d+\.\d+)/g,
+      // Pattern 3: wordNumbers.numbers.numbers (e.g., RvKh1.1.1, chup6.8.7)
+      /([a-zA-Z]+\d+\.\d+\.\d+)/g,
+      // Pattern 4: word_optionalNumbers,numbers (e.g., krmp2,15)
+      /([a-zA-Z]+(?:_\d+)?,\d+)/g,
+      // Pattern 5: wordNumbers,numbers (e.g., krmp2,15)
+      /([a-zA-Z]+\d+,\d+)/g,
+      // Pattern 6: wordNumbers.numbers (e.g., Rv1.1)
+      /([a-zA-Z]+\d+\.\d+)/g
+    ];
 
-    // Look for canonical reference patterns
-    for (const pattern of scriptureConfig.patterns) {
-      const match = text.match(pattern);
-      if (match) {
-        // Extract the reference part (e.g., "ram_2,40.20" -> "Ram2,40.20")
-        const ref = match[0].replace(/[\/\/\s]/g, '').replace(/_/g, '');
-        return ref;
+    // Find all matches from all patterns and return the earliest one
+    let earliestMatch: { reference: string; index: number } | null = null;
+    
+    for (const pattern of canonicalPatterns) {
+      const matches = text.matchAll(pattern);
+      for (const match of matches) {
+        const reference = match[0];
+        const index = match.index || 0;
+        
+        // Clean up any surrounding markers but preserve the reference format
+        const cleanedRef = reference
+          .replace(/^\/\/\s*/, '')  // Remove leading //
+          .replace(/\s*\/\/$/, '')  // Remove trailing //
+          .replace(/^\[/, '')       // Remove leading [
+          .replace(/\]$/, '')       // Remove trailing ]
+          .replace(/^\(/, '')       // Remove leading (
+          .replace(/\)$/, '')       // Remove trailing )
+          .trim();
+        
+        // Validate that it looks like a canonical reference (must contain numbers)
+        if (cleanedRef && /\d/.test(cleanedRef) && /^[a-zA-Z]+/.test(cleanedRef)) {
+          // Check if this is the earliest match so far
+          if (!earliestMatch || index < earliestMatch.index) {
+            earliestMatch = { reference: cleanedRef, index };
+          }
+        }
       }
     }
-
-    return undefined;
+    
+    return earliestMatch ? earliestMatch.reference : undefined;
   }
 
   /**
