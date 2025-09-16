@@ -4,7 +4,7 @@
  * Preserves scholarly integrity while optimizing for speech synthesis
  */
 
-import { ScripturePatternService } from './scripturePatternService';
+import { ScripturePatternService } from './scripturePatternService.js';
 
 export interface CleanupOptions {
   keepDandaForProsody: boolean; // Config flag for recitation style
