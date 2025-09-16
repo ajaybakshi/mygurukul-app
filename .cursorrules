@@ -3,3 +3,5 @@
 - No "trust me, it works" commits
 - 30-second verification before moving forward
 - Embarrassment test: "Would I be comfortable showing this to a user?"
+- "Always verify working directory before git commands:
+pwd should show /Users/AJ/Desktop/mygurukul-app"
