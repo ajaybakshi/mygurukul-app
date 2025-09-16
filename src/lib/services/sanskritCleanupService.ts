@@ -83,7 +83,13 @@ export class SanskritCleanupService {
     // Step 1: Extract canonical reference before cleaning
     const canonicalReference = this.extractCanonicalReference(cleaned, scriptureFile);
 
-    // Step 2: Apply scripture-specific verse marker elimination
+    // Step 2: Remove the canonical reference from the text to prevent pattern conflicts
+    if (canonicalReference) {
+      // Remove the canonical reference from the text
+      cleaned = cleaned.replace(canonicalReference, '');
+    }
+
+    // Step 3: Apply scripture-specific verse marker elimination
     const scriptureConfig = this.scriptureService.getScriptureConfig(scriptureFile);
     if (scriptureConfig) {
       scriptureConfig.patterns.forEach(pattern => {
@@ -95,10 +101,13 @@ export class SanskritCleanupService {
       });
     }
 
-    // Step 3: Remove additional verse markers and references
+    // Step 4: Remove additional verse markers and references
     cleaned = this.removeAdditionalVerseMarkers(cleaned, patternsRemoved);
+    
+    // Step 4.5: Remove any remaining canonical reference patterns
+    cleaned = this.removeRemainingCanonicalPatterns(cleaned);
 
-    // Step 4: Handle prosody markers (danda, etc.)
+    // Step 5: Handle prosody markers (danda, etc.)
     if (options.keepDandaForProsody) {
       const dandaMatches = cleaned.match(/[।॥]/g);
       if (dandaMatches) {
@@ -108,21 +117,22 @@ export class SanskritCleanupService {
       cleaned = cleaned.replace(/[।॥]/g, '');
     }
 
-    // Step 5: Remove digits if requested
+    // Step 6: Remove digits if requested (but preserve canonical references)
     if (options.removeDigits) {
-      const digitMatches = cleaned.match(/\d+/g);
-      if (digitMatches) {
-        patternsRemoved.push(...digitMatches);
-        cleaned = cleaned.replace(/\d+/g, '');
+      // Only remove standalone digits, not those in canonical references
+      const standaloneDigits = cleaned.match(/\b\d+\b/g);
+      if (standaloneDigits) {
+        patternsRemoved.push(...standaloneDigits);
+        cleaned = cleaned.replace(/\b\d+\b/g, '');
       }
     }
 
-    // Step 6: Normalize whitespace
+    // Step 7: Normalize whitespace
     if (options.normalizeWhitespace) {
       cleaned = this.normalizeWhitespace(cleaned);
     }
 
-    // Step 7: Final Sanskrit-specific cleaning
+    // Step 8: Final Sanskrit-specific cleaning
     cleaned = this.applySanskritSpecificCleaning(cleaned);
 
     const processingTime = Date.now() - startTime;
@@ -160,7 +170,15 @@ export class SanskritCleanupService {
       // Pattern 5: wordNumbers,numbers (e.g., krmp2,15)
       /([a-zA-Z]+\d+,\d+)/g,
       // Pattern 6: wordNumbers.numbers (e.g., Rv1.1)
-      /([a-zA-Z]+\d+\.\d+)/g
+      /([a-zA-Z]+\d+\.\d+)/g,
+      // Pattern 7: word_underscore_numbers.numbers.numbers (e.g., RV_1.1.1)
+      /([a-zA-Z]+_\d+\.\d+\.\d+)/g,
+      // Pattern 8: word_underscore_numbers.numbers (e.g., RV_1.1)
+      /([a-zA-Z]+_\d+\.\d+)/g,
+      // Pattern 9: brackets with numbers (e.g., [2.40.20])
+      /(\[\d+\.\d+\.\d+\])/g,
+      // Pattern 10: brackets with numbers (e.g., [1.1.1])
+      /(\[\d+\.\d+\])/g
     ];
 
     // Find all matches from all patterns and return the earliest one
@@ -183,7 +201,7 @@ export class SanskritCleanupService {
           .trim();
         
         // Validate that it looks like a canonical reference (must contain numbers)
-        if (cleanedRef && /\d/.test(cleanedRef) && /^[a-zA-Z]+/.test(cleanedRef)) {
+        if (cleanedRef && /\d/.test(cleanedRef)) {
           // Check if this is the earliest match so far
           if (!earliestMatch || index < earliestMatch.index) {
             earliestMatch = { reference: cleanedRef, index };
@@ -224,6 +242,29 @@ export class SanskritCleanupService {
   }
 
   /**
+   * Remove any remaining canonical reference patterns
+   */
+  private removeRemainingCanonicalPatterns(text: string): string {
+    let cleaned = text;
+
+    // Remove any remaining canonical reference patterns
+    const canonicalPatterns = [
+      /[a-zA-Z]+\d+,\d+\.\d+/g,     // wordNumbers,numbers.numbers
+      /[a-zA-Z]+\d+\.\d+\.\d+/g,    // wordNumbers.numbers.numbers
+      /[a-zA-Z]+\d+,\d+/g,          // wordNumbers,numbers
+      /[a-zA-Z]+\d+\.\d+/g,         // wordNumbers.numbers
+      /[a-zA-Z]+_\d+\.\d+\.\d+/g,   // word_underscore_numbers.numbers.numbers
+      /[a-zA-Z]+_\d+\.\d+/g,        // word_underscore_numbers.numbers
+    ];
+
+    canonicalPatterns.forEach(pattern => {
+      cleaned = cleaned.replace(pattern, '');
+    });
+
+    return cleaned;
+  }
+
+  /**
    * Normalize whitespace for better audio generation
    */
   private normalizeWhitespace(text: string): string {
@@ -236,13 +277,24 @@ export class SanskritCleanupService {
 
   /**
    * Apply Sanskrit-specific cleaning rules
+   * Preserves both Devanagari and IAST text for transliteration
    */
   private applySanskritSpecificCleaning(text: string): string {
     return text
-      // Remove common Sanskrit text artifacts
+      // Remove common Sanskrit text artifacts but preserve IAST characters
       .replace(/[॥।]+/g, '')          // Remove danda markers if not keeping for prosody
       .replace(/[।॥]/g, '')           // Remove any remaining danda
-      .replace(/[^\u0900-\u097F\u0020\u000A\u000D]/g, ' ') // Keep only Devanagari, space, newline, carriage return
+      // Remove scripture markers and brackets but preserve IAST characters
+      .replace(/\/\/\s*/g, '')        // Remove // markers
+      .replace(/\[\s*\]/g, '')        // Remove empty brackets
+      .replace(/\[\d+\.\d+\.\d+\]/g, '') // Remove bracket references
+      .replace(/\[\d+\.\d+\]/g, '')   // Remove bracket references
+      .replace(/\(\d+\)/g, '')        // Remove (1) markers
+      // Remove vertical bars that cause TTS issues
+      .replace(/\|+/g, '')            // Remove single and multiple vertical bars
+      .replace(/\|\s*\||\|\s+/g, ' ') // Remove vertical bars with spaces
+      // Keep Devanagari, IAST (Latin with diacritics), spaces, and newlines
+      .replace(/[^\u0900-\u097F\u0020-\u00FF\u0100-\u017F\u0180-\u024F\u1E00-\u1EFF\u000A\u000D]/g, ' ')
       .replace(/\s+/g, ' ')           // Normalize spaces again
       .trim();
   }

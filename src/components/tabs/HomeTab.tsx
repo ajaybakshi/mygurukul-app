@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, MessageSquare } from 'lucide-react';
 import { useTabContext } from '@/contexts/TabContext';
+import AudioIconButton from '@/components/audio/AudioIconButton';
 
 // Client-side only date component to avoid hydration mismatches
 const ClientDate: React.FC = () => {
@@ -481,10 +482,23 @@ const HomeTab: React.FC<HomeTabProps> = ({ className = '' }) => {
                     )}
                   </div>
 
-                  {/* Sacred Text */}
-                  <div className="bg-white/60 p-6 rounded-lg border-l-4 border-amber-300 shadow-sm">
+                  {/* Sacred Text with Audio Control */}
+                  <div className="relative bg-white/60 p-6 rounded-lg border-l-4 border-amber-300 shadow-sm">
                     <div className="text-gray-800 leading-relaxed text-lg font-serif italic text-center">
                       "{todaysWisdom.rawText}"
+                    </div>
+                    
+                    {/* Audio control - positioned in top-right corner */}
+                    <div className="absolute top-2 right-2">
+                      <AudioIconButton
+                        text={todaysWisdom.rawText}
+                        language="sanskrit"
+                        size="sm"
+                        variant="primary"
+                        onPlayStart={() => console.log('Playing sacred text audio')}
+                        onPlayEnd={() => console.log('Sacred text audio finished')}
+                        onError={(error) => console.error('Audio error:', error)}
+                      />
                     </div>
                   </div>
                 </div>
