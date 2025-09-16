@@ -7,6 +7,20 @@ import { dialogueLogicalUnitExtractor, DialogueLogicalUnitExtractor } from './ex
 import { hymnalLogicalUnitExtractor, HymnalLogicalUnitExtractor } from './extractors/hymnalLogicalUnitExtractor';
 import { narrativeLogicalUnitExtractor, NarrativeLogicalUnitExtractor } from './extractors/narrativeLogicalUnitExtractor';
 
+interface ParsedLogicalUnit {
+  cleanText: string;
+  metadata: {
+    source: string;
+    chapter: string; 
+    section: string;
+    reference: string;
+  };
+  boundaries: {
+    startVerse: string;
+    endVerse?: string;
+  };
+}
+
 interface GretilWisdomSource {
   folderName: string;
   displayName: string;
@@ -1092,6 +1106,7 @@ class GretilWisdomService {
   }
 
   private extractReference(line: string): string | null {
+    console.log('🆕 Using enhanced parseLogicalUnit for reference extraction');
     const referencePatterns = [
       /ap_\d+\.\d+[a-z]*/,
       /LiP_\d+,\d+\.\d+/,
@@ -1130,31 +1145,209 @@ class GretilWisdomService {
   }
 
   private extractVerseText(line: string): string | null {
-    // Remove reference and extract Sanskrit text
-    let cleanLine = line
-      .replace(/\/\/.*$/, '')  // Remove end comments
-      .replace(/\|\|.*$/, '')  // Remove verse endings
-      .replace(/ap_\d+\.\d+[a-z]*\/?\s*/, '')
-      .replace(/LiP_\d+,\d+\.\d+\s*/, '')
-      .replace(/bhg \d+\.\d+\s*/, '')
-      .replace(/chup_\d+,\d+\.\d+\s*\|\|\s*/, '')
-      .replace(/RvKh_\d+,\d+\.\d+\.\d+\s*/, '')
-      .replace(/Ram_\d+,\d+\.\d+\s*/, '')
+    console.log('🆕 Using enhanced parseLogicalUnit for verse extraction');
+    try {
+      const parsed = this.parseLogicalUnit(line);
+      return parsed.cleanText.length > 10 ? parsed.cleanText : null;
+    } catch (error) {
+      console.error('Error in extractVerseText:', error);
+      // Fallback to original logic if needed
+      return line.replace(/\/\/.*$/, '').replace(/\|\|.*$/, '').trim();
+    }
+  }
+
+  // Helper method for metadata extraction using new parseLogicalUnit
+  private extractMetadataFromParsedUnit(line: string): any {
+    try {
+      const parsed = this.parseLogicalUnit(line);
+      return {
+        source: parsed.metadata.source,
+        chapter: parsed.metadata.chapter,
+        section: parsed.metadata.section,
+        reference: parsed.metadata.reference,
+        boundaries: parsed.boundaries
+      };
+    } catch (error) {
+      console.error('Error extracting metadata:', error);
+      return null;
+    }
+  }
+
+  // Enhanced verse marker parsing with comprehensive pattern support
+  private parseLogicalUnit(rawText: string): ParsedLogicalUnit {
+    console.log('🔍 parseLogicalUnit input:', rawText.substring(0, 200) + '...');
+    
+    // 1. METICULOUSLY CORRECTED REGEX PATTERNS
+    const versePatterns = [
+      { regex: /(?:\/\/\s*)?Ram_(\d+),(\d+)\.(\d+)/g, source: 'Ramayana', format: 'Ram_{book},{chapter}.{verse}' },
+      { regex: /RvKh_(\d+),(\d+)\.(\d+)/g, source: 'Rig Veda Khila', format: 'RvKh_{book},{hymn}.{verse}' },
+      { regex: /(?:\|\|\s*)?chup(?:bh)?_(\d+),(\d+)\.(\d+)(?:\s*\|\|)?/g, source: 'Chandogya Upanishad', format: 'chup_{chapter},{section}.{verse}' },
+      { regex: /bhg\s+(\d+)\.(\d+)/g, source: 'Bhagavad Gita', format: 'bhg {chapter}.{verse}' },
+      { regex: /(?:\/\/?\s*)?ap_(\d+)\.(\d+)([a-z]*)(?:\s*\/)?/g, source: 'Agni Purana', format: 'ap_{chapter}.{verse}{subverse}' },
+      { regex: /(?:\/\/\s*)?garp_(\d+),(\d+)\.(\d+)(?:\s*\/\/)?/g, source: 'Garuda Purana', format: 'garp_{chapter},{section}.{verse}' }
+    ];
+
+    // 2. EXTRACT MARKERS WITH POSITION TRACKING
+    const foundMarkers: Array<{
+      fullMatch: string;
+      source: string;
+      numbers: string[];
+      format: string;
+      position: number;
+    }> = [];
+    
+    versePatterns.forEach(pattern => {
+      let match;
+      pattern.regex.lastIndex = 0;
+      
+      while ((match = pattern.regex.exec(rawText)) !== null) {
+        foundMarkers.push({
+          fullMatch: match[0],
+          source: pattern.source,
+          numbers: match.slice(1),
+          format: pattern.format,
+          position: match.index
+        });
+        console.log(`✅ Found ${pattern.source} marker:`, match[0], 'at position', match.index);
+      }
+    });
+
+    foundMarkers.sort((a, b) => a.position - b.position);
+    console.log('📊 Total markers found:', foundMarkers.length);
+
+    // 3. SURGICAL TEXT CLEANING
+    let cleanText = rawText;
+    
+    foundMarkers.forEach(marker => {
+      cleanText = cleanText.replace(marker.fullMatch, '').trim();
+    });
+    
+    cleanText = cleanText
+      .replace(/^\s*start\s+/gm, '')
+      .replace(/^\s*\d+\s+/gm, '')
+      .replace(/\s+/g, ' ')
       .trim();
+
+    console.log('🧹 Cleaned text length:', cleanText.length);
+
+    // 4. METADATA EXTRACTION
+    let targetMarker;
     
-    // CRITICAL: Limit content to 2-3 verses maximum for clean user experience
-    // Split by common verse endings and take only first 2-3 parts
-    const verseParts = cleanLine.split(/[|]{2,}|\s{3,}/);
-    if (verseParts.length > 3) {
-      cleanLine = verseParts.slice(0, 3).join(' || ');
+    if (foundMarkers.length >= 2) {
+      targetMarker = foundMarkers[1];
+      console.log('🎯 Using second marker for metadata:', targetMarker.fullMatch);
+    } else if (foundMarkers.length === 1) {
+      targetMarker = foundMarkers[0];
+      console.log('🔄 Using single marker for metadata:', targetMarker.fullMatch);
+    } else {
+      console.log('❌ No verse markers found');
     }
     
-    // Additional length limit for very long content
-    if (cleanLine.length > 500) {
-      cleanLine = cleanLine.substring(0, 500) + '...';
+    let metadata = {
+      source: 'Sacred Text',
+      chapter: 'Sacred Chapter', 
+      section: 'Sacred Section',
+      reference: 'Unknown'
+    };
+
+    if (targetMarker) {
+      const [num1, num2, num3, subVerse] = targetMarker.numbers;
+      
+      switch(targetMarker.source) {
+        case 'Ramayana':
+          metadata = {
+            source: 'Ramayana',
+            chapter: `Book ${num1}`,
+            section: `Chapter ${num2}, Verse ${num3}`,
+            reference: `Ram_${num1},${num2}.${num3}`
+          };
+          break;
+          
+        case 'Rig Veda Khila':
+          metadata = {
+            source: 'Rig Veda Khila',
+            chapter: `Book ${num1}`, 
+            section: `Hymn ${num2}, Verse ${num3}`,
+            reference: `RvKh_${num1},${num2}.${num3}`
+          };
+          break;
+          
+        case 'Chandogya Upanishad':
+          metadata = {
+            source: 'Chandogya Upanishad',
+            chapter: `Chapter ${num1}`,
+            section: `Section ${num2}, Verse ${num3}`, 
+            reference: `chup_${num1},${num2}.${num3}`
+          };
+          break;
+          
+        case 'Bhagavad Gita':
+          metadata = {
+            source: 'Bhagavad Gita',
+            chapter: `Chapter ${num1}`,
+            section: `Verse ${num2}`,
+            reference: `bhg ${num1}.${num2}`
+          };
+          break;
+          
+        case 'Agni Purana':
+          metadata = {
+            source: 'Agni Purana',
+            chapter: `Chapter ${num1}`,
+            section: `Verse ${num2}${subVerse || ''}`,
+            reference: `ap_${num1}.${num2}${subVerse || ''}`
+          };
+          break;
+          
+        case 'Garuda Purana':
+          metadata = {
+            source: 'Garuda Purana',
+            chapter: `Chapter ${num1}`,
+            section: `Section ${num2}, Verse ${num3}`,
+            reference: `garp_${num1},${num2}.${num3}`
+          };
+          break;
+      }
+      
+      console.log('📋 Generated metadata:', metadata);
     }
+
+    // 5. DETERMINE BOUNDARIES
+    const boundaries = {
+      startVerse: foundMarkers[0]?.fullMatch || '',
+      endVerse: foundMarkers[1]?.fullMatch || undefined
+    };
+
+    return {
+      cleanText,
+      metadata,
+      boundaries
+    };
+  }
+
+  // Test function for debugging (can be removed in production)
+  private testParseLogicalUnit(): void {
+    console.log('🧪 Testing parseLogicalUnit with scripture samples...\n');
     
-    return cleanLine.length > 10 ? cleanLine : null;
+    // Test Case 1: Ramayana with comment format
+    const ramayanaSample = `teṣām api mahātejā rāmo // Ram_2,1.10 gate ca bharate rāmo // Ram_2,1.11`;
+    console.log('📖 Test 1 - Ramayana Sample:');
+    const result1 = this.parseLogicalUnit(ramayanaSample);
+    console.log('Result:', result1);
+    
+    // Test Case 2: Rig Veda Khila
+    const rigVedaSample = `agnim īḷe purohitaṃ // RvKh_1,2.7 yajñasya devaṃ ṛtvijam // RvKh_1,2.8`;
+    console.log('📖 Test 2 - Rig Veda Khila Sample:');
+    const result2 = this.parseLogicalUnit(rigVedaSample);
+    console.log('Result:', result2);
+    
+    // Test Case 3: Chandogya Upanishad with delimiters
+    const chandogyaSample = `|| chup_1,1.3 || sa vā eṣa ātmā || chup_1,1.4 ||`;
+    console.log('📖 Test 3 - Chandogya Upanishad Sample:');
+    const result3 = this.parseLogicalUnit(chandogyaSample);
+    console.log('Result:', result3);
+    
+    console.log('✅ Test completed!');
   }
 
 }
