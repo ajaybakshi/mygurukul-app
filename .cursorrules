@@ -3,3 +3,34 @@
 - No "trust me, it works" commits
 - 30-second verification before moving forward
 - Embarrassment test: "Would I be comfortable showing this to a user?"
+
+# CRITICAL GIT PROTECTION RULES
+# This project has an existing Git repository - DO NOT REINITIALIZE
+
+## FORBIDDEN COMMANDS - NEVER RUN THESE:
+- git init (WILL DESTROY EXISTING REPOSITORY)
+- rm -rf .git (WILL DESTROY HISTORY)
+- git reset --hard (WITHOUT EXPLICIT APPROVAL)
+
+## REQUIRED GIT WORKFLOW:
+1. ALWAYS check "git status" before any git operations
+2. NEVER run "git init" - repository already exists
+3. IF git commands fail, STOP and ask user before proceeding
+4. For git issues, suggest manual terminal operations instead
+
+## SAFE GIT OPERATIONS ONLY:
+- git status (check repository state)
+- git add . (stage files)
+- git commit -m "message" (commit changes)
+- git log --oneline (view history)
+- git branch (check branches)
+
+## EMERGENCY PROTOCOL:
+If git operations fail or show errors:
+1. STOP immediately
+2. Report the exact error to user
+3. Suggest manual terminal approach
+4. NEVER attempt to "fix" by reinitializing
+
+## PROJECT CONTEXT:
+This is a valuable Sanskrit AI project with 40+ tagged milestones including revolutionary v2.0.0-sanskrit-revolution. Destroying the git history would be catastrophic.
