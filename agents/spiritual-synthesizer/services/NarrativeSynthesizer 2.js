@@ -1,16 +1,6 @@
 const logger = require('../logger');
 const { NarrativeGenerationError, VerseProcessingError } = require('../errors');
 
-// Import new prompt configuration system
-const promptsModule = require('../config/prompts/index.js');
-const {
-  getCompleteSynthesizerConfig,
-  getSynthesizerSystemPrompt,
-  getNarrativeTemplate,
-  composeCustomTemplate,
-  getResponseSection
-} = promptsModule;
-
 /**
  * Narrative Synthesizer Service
  * Transforms raw verse data from Sanskrit Collector into conversational wisdom narratives
@@ -25,9 +15,6 @@ class NarrativeSynthesizer {
       truthfulness: 'Always cite sources transparently and accurately',
       nonHarm: 'Guide without judgment or exclusion'
     };
-
-    // Initialize prompt system
-    this.initializePromptSystem();
   }
 
   /**
@@ -174,8 +161,8 @@ class NarrativeSynthesizer {
 
       validationResults.hasValidReferences = validReferences.length > 0;
 
-      // Check Sanskrit content availability (Sanskrit-first architecture)
-      validationResults.hasSanskritContent = verses.some(verse => verse.sanskrit);
+      // Check translation availability
+      validationResults.hasTranslations = verses.every(verse => verse.translation);
 
       // Check source authenticity
       validationResults.hasAuthenticSources = verses.some(verse =>
@@ -193,8 +180,8 @@ class NarrativeSynthesizer {
         throw new VerseProcessingError('No valid scriptural references found in verse data');
       }
 
-      if (!validationResults.hasSanskritContent) {
-        throw new VerseProcessingError('Missing Sanskrit content in verses');
+      if (!validationResults.hasTranslations) {
+        throw new VerseProcessingError('Missing translations for verses');
       }
 
       logger.info('Scriptural grounding validation completed', {
@@ -287,7 +274,7 @@ class NarrativeSynthesizer {
 
       const preferences = context.preferences || {};
       const tone = preferences.tone || 'conversational';
-      const style = preferences.narrativeStyle || 'sanskrit-anchored'; // Default to new structure
+      const style = preferences.narrativeStyle || 'teaching';
 
       // Generate narrative based on style
       let narrative;
@@ -299,13 +286,8 @@ class NarrativeSynthesizer {
         case 'dialogue':
           narrative = this.generateDialogueNarrative(structure, question);
           break;
-        case 'teaching':
-          narrative = this.generateTeachingNarrative(structure, question);
-          break;
-        case 'sanskrit-anchored':
         default:
-          narrative = this.generateSanskritAnchoredNarrative(structure, question, context, correlationId);
-          break;
+          narrative = this.generateTeachingNarrative(structure, question);
       }
 
       // Apply tone adjustments
@@ -319,12 +301,7 @@ class NarrativeSynthesizer {
           style,
           generatedAt: new Date().toISOString(),
           wordCount: tonedNarrative.split(' ').length,
-          questionAddressed: question,
-          promptSystem: {
-            version: this.promptConfig.version,
-            templateUsed: style,
-            sanskritAnchored: style === 'sanskrit-anchored'
-          }
+          questionAddressed: question
         }
       };
 
@@ -332,8 +309,7 @@ class NarrativeSynthesizer {
         correlationId,
         wordCount: wisdomNarrative.metadata.wordCount,
         tone,
-        style,
-        promptVersion: this.promptConfig.version
+        style
       });
 
       return wisdomNarrative;
@@ -422,29 +398,6 @@ class NarrativeSynthesizer {
   }
 
   /**
-   * Initialize prompt system
-   * @private
-   */
-  async initializePromptSystem() {
-    try {
-      // Load the prompt modules (already loaded at startup in index.js)
-      // await promptsModule.loadModules(); // Already loaded at startup
-
-      // Get configuration
-      this.promptConfig = promptsModule.getCompleteSynthesizerConfig();
-
-      logger.info('Synthesizer prompt system initialized', {
-        version: this.promptConfig.version,
-        templates: Object.keys(this.promptConfig.templates).length,
-        sanskritConcepts: Object.keys(this.promptConfig.sanskrit.coreConcepts).length
-      });
-    } catch (error) {
-      logger.error('Failed to initialize prompt system', { error: error.message });
-      throw error;
-    }
-  }
-
-  /**
    * Get health status of the synthesizer service
    * @returns {Promise<Object>} Health status
    */
@@ -458,13 +411,7 @@ class NarrativeSynthesizer {
         uptime: process.uptime(),
         memory: process.memoryUsage(),
         version: process.env.npm_package_version || '1.0.0',
-        sankalpaPrinciples: this.sankalpaPrinciples,
-        promptSystem: {
-          version: this.promptConfig?.version || 'unknown',
-          initialized: !!this.promptConfig,
-          availableStyles: this.getAvailableNarrativeStyles(),
-          sanskritAnchored: true
-        }
+        sankalpaPrinciples: this.sankalpaPrinciples
       };
 
     } catch (error) {
@@ -475,19 +422,6 @@ class NarrativeSynthesizer {
         timestamp: new Date().toISOString()
       };
     }
-  }
-
-  /**
-   * Get available narrative styles
-   * @returns {Array} Available narrative style options
-   */
-  getAvailableNarrativeStyles() {
-    return [
-      'sanskrit-anchored', // New default: Empathic + Discovery + Analysis + Synthesis + Inquiry
-      'teaching',          // Traditional teaching style
-      'storytelling',      // Narrative storytelling approach
-      'dialogue'           // Conversational dialogue style
-    ];
   }
 
   // Helper methods
@@ -565,48 +499,14 @@ class NarrativeSynthesizer {
       development += ` connects with ${supportingThemes.map(t => t.name).join(' and ')}`;
     }
 
-    development += ', offering deep insights for our spiritual journey.\n\n';
-
-    // Add actual Sanskrit verses (Sanskrit-first architecture)
-    const topVerses = verses
-      .filter(v => v.sanskrit) // Sanskrit is primary, translations optional
-      .slice(0, 2); // Show top 2 verses
-
-    if (topVerses.length > 0) {
-      development += '**Sacred Verses:**\n\n';
-      topVerses.forEach((verse, index) => {
-        development += `**Verse ${index + 1}:**\n`;
-        development += `*Sanskrit:* ${verse.sanskrit}\n`;
-        if (verse.translation && verse.translation !== 'Translation not available') {
-          development += `*Translation:* ${verse.translation}\n`;
-        }
-        if (verse.interpretation && verse.interpretation !== 'Spiritual interpretation of the verse') {
-          development += `*Interpretation:* ${verse.interpretation}\n`;
-        }
-        development += `*Source:* ${verse.reference}\n\n`;
-      });
-    }
-
+    development += ', offering deep insights for our spiritual journey.';
     return development;
   }
 
   buildCulmination(primaryTheme, verses) {
     const keyVerse = verses.find(v => v.clusterTheme === primaryTheme.name);
-    if (keyVerse && keyVerse.sanskrit) {
-      let culmination = `The essence of this wisdom is beautifully captured in the Sanskrit verse:
-
-**${keyVerse.sanskrit}**`;
-
-      if (keyVerse.translation && keyVerse.translation !== 'Translation not available') {
-        culmination += `\n\n*Translation:* ${keyVerse.translation}`;
-      }
-
-      if (keyVerse.interpretation && keyVerse.interpretation !== 'Spiritual interpretation of the verse') {
-        culmination += `\n\n*Interpretation:* ${keyVerse.interpretation}`;
-      }
-
-      culmination += `\n\n*Source:* ${keyVerse.reference}`;
-      return culmination;
+    if (keyVerse) {
+      return `The essence of this wisdom is beautifully captured in the understanding that ${keyVerse.translation.substring(0, 100)}...`;
     }
     return 'This wisdom invites us to contemplate the deeper meaning of our spiritual path.';
   }
@@ -616,14 +516,12 @@ class NarrativeSynthesizer {
   }
 
   extractPracticalGuidance(verses) {
-    // Extract actionable insights from verses with Sanskrit content (Sanskrit-first)
+    // Extract actionable insights from verses
     return verses
-      .filter(verse => verse.sanskrit) // Sanskrit is primary requirement
+      .filter(verse => verse.interpretation)
       .map(verse => ({
-        insight: verse.interpretation || 'Contemplate the deeper meaning of this Sanskrit verse',
-        source: verse.reference,
-        sanskrit: verse.sanskrit,
-        translation: verse.translation && verse.translation !== 'Translation not available' ? verse.translation : null
+        insight: verse.interpretation,
+        source: verse.reference
       }))
       .slice(0, 3);
   }
@@ -637,250 +535,21 @@ class NarrativeSynthesizer {
     return suggestions;
   }
 
-  /**
-   * Generate Sanskrit-anchored English narrative with the new structure
-   * @param {Object} structure - Narrative structure
-   * @param {string} question - User's question
-   * @param {Object} context - User context and preferences
-   * @param {string} correlationId - Request correlation ID
-   * @returns {string} Sanskrit-anchored narrative
-   */
-  generateSanskritAnchoredNarrative(structure, question, context, correlationId) {
-    try {
-      logger.info('Generating Sanskrit-anchored narrative', { correlationId });
-
-      const { primaryTheme, supportingThemes } = structure;
-      const topVerses = primaryTheme.verses
-        .filter(verse => verse.sanskrit)
-        .sort((a, b) => b.relevance - a.relevance)
-        .slice(0, 4); // Get top 3-4 verses for analysis
-
-      // Section 1: Empathic Acknowledgment
-      const empathicSection = this.generateEmpathicAcknowledgment(question, context);
-
-      // Section 2: Ancient Wisdom Discovery
-      const wisdomDiscoverySection = this.generateAncientWisdomDiscovery(primaryTheme, supportingThemes);
-
-      // Section 3: Ranked Verse Analysis (3-4 verses)
-      const verseAnalysisSection = this.generateRankedVerseAnalysis(topVerses, primaryTheme);
-
-      // Section 4: True Synthesis
-      const synthesisSection = this.generateTrueSynthesis(topVerses, primaryTheme, question);
-
-      // Section 5: Contemplative Inquiry
-      const inquirySection = this.generateContemplativeInquiry(primaryTheme, context);
-
-      // Compose the complete narrative
-      const narrative = `${empathicSection}
-
-${wisdomDiscoverySection}
-
-${verseAnalysisSection}
-
-${synthesisSection}
-
-${inquirySection}`;
-
-      logger.info('Sanskrit-anchored narrative generated', {
-        correlationId,
-        verseCount: topVerses.length,
-        sections: 5
-      });
-
-      return narrative;
-
-    } catch (error) {
-      logger.error('Sanskrit-anchored narrative generation failed', {
-        correlationId,
-        error: error.message
-      });
-      throw new NarrativeGenerationError('Failed to generate Sanskrit-anchored narrative', error);
-    }
-  }
-
-  /**
-   * Generate Empathic Acknowledgment section
-   * @param {string} question - User's question
-   * @param {Object} context - User context
-   * @returns {string} Empathic acknowledgment
-   */
-  generateEmpathicAcknowledgment(question, context) {
-    const preferences = context.preferences || {};
-    const seekerLevel = preferences.spiritualLevel || 'seeker';
-
-    let acknowledgment = `🙏 **Empathetic Opening**\n\n`;
-
-    // Adapt acknowledgment based on context
-    if (question.toLowerCase().includes('struggle') || question.toLowerCase().includes('difficult')) {
-      acknowledgment += `I sense the depth of your current challenge, and I want you to know that countless souls throughout history have walked similar paths of questioning and seeking. The ancient wisdom of our tradition offers gentle guidance for exactly these moments of uncertainty.`;
-    } else if (question.toLowerCase().includes('purpose') || question.toLowerCase().includes('meaning')) {
-      acknowledgment += `Your question touches on one of life's most profound inquiries - the search for deeper meaning and purpose. This is the sacred quest that has drawn countless spiritual seekers to the wisdom of the ages, and our tradition holds precious insights for this very journey.`;
-    } else {
-      acknowledgment += `Your inquiry reflects a beautiful sincerity in seeking spiritual understanding. This openness to wisdom is itself a form of spiritual practice that our tradition deeply honors and supports.`;
-    }
-
-    return acknowledgment;
-  }
-
-  /**
-   * Generate Ancient Wisdom Discovery section
-   * @param {Object} primaryTheme - Primary theme
-   * @param {Array} supportingThemes - Supporting themes
-   * @returns {string} Ancient wisdom discovery
-   */
-  generateAncientWisdomDiscovery(primaryTheme, supportingThemes) {
-    let discovery = `📿 **Ancient Wisdom Discovery**\n\n`;
-
-    discovery += `The ancient Sanskrit tradition offers profound insights into ${primaryTheme.name}`;
-
-    if (supportingThemes && supportingThemes.length > 0) {
-      discovery += `, beautifully complemented by teachings on ${supportingThemes.map(t => t.name).join(' and ')}. `;
-      discovery += `These interconnected wisdom streams create a comprehensive understanding that has guided spiritual seekers for millennia.`;
-    } else {
-      discovery += `, providing timeless guidance that continues to illuminate the spiritual path for modern seekers.`;
-    }
-
-    discovery += `\n\nThis wisdom emerges not from a single voice, but from the collective spiritual experience of countless sages, scholars, and practitioners who have walked this path before us.`;
-
-    return discovery;
-  }
-
-  /**
-   * Generate Ranked Verse Analysis section (3-4 verses)
-   * @param {Array} verses - Top verses to analyze
-   * @param {Object} primaryTheme - Primary theme
-   * @returns {string} Ranked verse analysis
-   */
-  generateRankedVerseAnalysis(verses, primaryTheme) {
-    let analysis = `📿 **Ranked Verse Analysis**\n\n`;
-
-    if (verses.length === 0) {
-      analysis += `While I searched through the sacred texts for verses related to ${primaryTheme.name}, I found that the wisdom is better expressed through the synthesized understanding that follows.`;
-    } else {
-      analysis += `Here are the most relevant Sanskrit verses, ranked by their direct relevance to your inquiry:\n\n`;
-
-      verses.forEach((verse, index) => {
-        const rank = index + 1;
-        const rankEmoji = rank === 1 ? '🏆' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '📿';
-
-        analysis += `${rankEmoji} **Verse ${rank}** (Relevance: ${Math.round(verse.relevance * 100)}%)\n`;
-        analysis += `*Sanskrit:* ${verse.sanskrit}\n`;
-
-        if (verse.translation && verse.translation !== 'Translation not available') {
-          analysis += `*Translation:* ${verse.translation}\n`;
-        }
-
-        if (verse.interpretation && verse.interpretation !== 'Spiritual interpretation of the verse') {
-          analysis += `*Spiritual Insight:* ${verse.interpretation}\n`;
-        }
-
-        analysis += `*Source:* ${verse.reference}\n`;
-        analysis += `*Theme Connection:* ${verse.clusterTheme}\n\n`;
-      });
-    }
-
-    return analysis;
-  }
-
-  /**
-   * Generate True Synthesis section
-   * @param {Array} verses - Verses to synthesize
-   * @param {Object} primaryTheme - Primary theme
-   * @param {string} question - User's question
-   * @returns {string} True synthesis
-   */
-  generateTrueSynthesis(verses, primaryTheme, question) {
-    let synthesis = `🌸 **True Synthesis**\n\n`;
-
-    if (verses.length === 0) {
-      synthesis += `The true synthesis of wisdom occurs when we recognize that ${primaryTheme.name} is not merely an intellectual concept, but a lived experience of spiritual awareness.`;
-    } else {
-      synthesis += `When we weave together these sacred verses, a profound unified understanding emerges:\n\n`;
-
-      // Create synthesis from multiple verses
-      const themes = [...new Set(verses.map(v => v.clusterTheme))];
-      themes.forEach(theme => {
-        const themeVerses = verses.filter(v => v.clusterTheme === theme);
-        if (themeVerses.length > 0) {
-          synthesis += `**${theme}:** `;
-          synthesis += `The ${themeVerses.length > 1 ? 'verses' : 'verse'} reveal that ${theme} is both a personal practice and a universal principle, guiding us toward greater spiritual awareness and compassionate action.\n\n`;
-        }
-      });
-
-      synthesis += `This synthesis shows us that ${primaryTheme.name} is not a destination to reach, but a path to walk with awareness, compassion, and dedication.`;
-    }
-
-    return synthesis;
-  }
-
-  /**
-   * Generate Contemplative Inquiry section
-   * @param {Object} primaryTheme - Primary theme
-   * @param {Object} context - User context
-   * @returns {string} Contemplative inquiry
-   */
-  generateContemplativeInquiry(primaryTheme, context) {
-    let inquiry = `🕯️ **Contemplative Inquiry**\n\n`;
-
-    inquiry += `As you reflect on this wisdom about ${primaryTheme.name}, consider:\n\n`;
-
-    const inquiryQuestions = [
-      `How might these ancient teachings guide your daily choices and actions?`,
-      `What aspects of this wisdom resonate most deeply with your current life experience?`,
-      `How could you begin to integrate one of these insights into your spiritual practice?`,
-      `What questions does this wisdom raise for your own spiritual journey?`
-    ];
-
-    inquiryQuestions.forEach((question, index) => {
-      inquiry += `${index + 1}. ${question}\n`;
-    });
-
-    inquiry += `\nThese questions are not meant to be answered immediately, but to deepen your contemplation of the sacred teachings.`;
-
-    return inquiry;
-  }
-
   generateTeachingNarrative(structure, question) {
-    const { primaryTheme } = structure;
+    const { narrativeArc } = structure;
 
-    // Generate completely Sanskrit-first narrative
-    let narrative = `Your question about ${primaryTheme.name} touches on profound wisdom from our spiritual tradition.
+    return `${narrativeArc.introduction}
 
-The ancient Sanskrit texts reveal deep insights about ${primaryTheme.name} and its significance in our spiritual journey.`;
+${narrativeArc.development}
 
-    // Add Sanskrit verses section - this is the core content
-    const sanskritVerses = primaryTheme.verses.filter(v => v.sanskrit);
-    if (sanskritVerses.length > 0) {
-      narrative += `\n\n**Sacred Sanskrit Verses:**\n\n`;
-      sanskritVerses.slice(0, 3).forEach((verse, index) => {
-        narrative += `**Verse ${index + 1}:**\n`;
-        narrative += `*Sanskrit:* ${verse.sanskrit}\n`;
-        if (verse.translation && verse.translation !== 'Translation not available') {
-          narrative += `*Translation:* ${verse.translation}\n`;
-        }
-        if (verse.interpretation && verse.interpretation !== 'Spiritual interpretation of the verse') {
-          narrative += `*Interpretation:* ${verse.interpretation}\n`;
-        }
-        narrative += `*Source:* ${verse.reference}\n\n`;
-      });
-    }
+${narrativeArc.culmination}
 
-    // Add practical guidance based on Sanskrit content
-    if (sanskritVerses.length > 0) {
-      narrative += `**Practical guidance:**\n`;
-      sanskritVerses.slice(0, 2).forEach(verse => {
-        narrative += `• Contemplate the deeper meaning of this Sanskrit verse: ${verse.sanskrit.substring(0, 50)}...\n`;
-        narrative += `  *Source:* ${verse.reference}\n\n`;
-      });
-    }
+${narrativeArc.conclusion}
 
-    // Add reflection questions
-    narrative += `**Reflection questions:**\n`;
-    narrative += `• How might you apply this Sanskrit wisdom in your daily life?\n`;
-    narrative += `• What insights do these ancient verses offer for your spiritual journey?\n`;
-    narrative += `• Would you like to explore more teachings from these sacred texts?\n`;
+Practical guidance:
+${narrativeArc.practicalGuidance.map(g => `• ${g.insight}`).join('\n')}
 
-    return narrative;
+${narrativeArc.followUpSuggestions.join('\n')}`;
   }
 
   generateStorytellingNarrative(structure, question) {
