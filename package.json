@@ -24,12 +24,14 @@
     "node-cache": "^5.1.2",
     "react": "^18",
     "react-dom": "^18",
-    "sanscript": "^0.0.2"
+    "sanscript": "^0.0.2",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18.3.24",
     "@types/react-dom": "^18",
+    "@types/uuid": "^9.0.0",
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "14.0.4",

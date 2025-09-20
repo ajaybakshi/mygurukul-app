@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, RefreshCw } from 'lucide-react';
 import {
-  callDiscoveryEngine,
+  callWisdomEngine,
   DiscoveryEngineResponse,
   DiscoveryEngineError,
 } from "@/lib/discoveryEngine";
@@ -131,7 +131,7 @@ const AskTab: React.FC<AskTabProps> = ({ className = '' }) => {
       addMessage(userMessage);
 
       console.log("Sending request with sessionId:", sessionId, "and category:", category);
-      const response = await callDiscoveryEngine(
+      const response = await callWisdomEngine(
         question,
         sessionId || undefined,
         category

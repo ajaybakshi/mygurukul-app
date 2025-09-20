@@ -74,9 +74,32 @@ export default function AIResponse({ response, isLoading, error }: AIResponsePro
     )
   }
 
-  // Create comprehensive spiritual response combining answerText and reference content
-  const comprehensiveText = createComprehensiveSpiritualResponse(response)
-  const formattedText = formatAnswerText(comprehensiveText)
+  // Detect if this is a multi-agent response with rich Sanskrit content
+  const isMultiAgentResponse = (
+    answer.answerText?.includes('spiritual_wisdom') ||
+    answer.answerText?.includes('Practical guidance:') ||
+    answer.answerText?.includes('nitya̱ṁ') ||
+    answer.answerText?.includes('ru̱drā') ||
+    answer.answerText?.includes('rudrā') ||
+    answer.answerText?.includes('How might you apply this wisdom') ||
+    (answer.references && answer.references.some(ref => ref.chunkInfo?.relevanceScore && ref.chunkInfo.relevanceScore > 0.6))
+  );
+
+  console.log('🔍 Multi-Agent Detection:', {
+    isMultiAgent: isMultiAgentResponse,
+    hasSpiritualWisdom: answer.answerText?.includes('spiritual_wisdom'),
+    hasPracticalGuidance: answer.answerText?.includes('Practical guidance:'),
+    hasSanskrit: answer.answerText?.includes('nitya̱ṁ') || answer.answerText?.includes('ru̱drā'),
+    hasFollowUp: answer.answerText?.includes('How might you apply this wisdom'),
+    highRelevanceRefs: answer.references?.filter(ref => ref.chunkInfo?.relevanceScore && ref.chunkInfo.relevanceScore > 0.6).length || 0
+  });
+
+  // Use rich multi-agent content directly or create comprehensive response for traditional
+  const displayText = isMultiAgentResponse 
+    ? answer.answerText  // Use rich multi-agent content directly - preserve Sanskrit IAST and enhanced scoring
+    : createComprehensiveSpiritualResponse(response); // Use traditional function for Discovery Engine
+
+  const formattedText = formatAnswerText(displayText)
   const citations = extractCitations(answer.answerText, answer.citations)
 
   return (
@@ -99,7 +122,7 @@ export default function AIResponse({ response, isLoading, error }: AIResponsePro
       {/* Answer Text */}
       <div className="mb-6">
         <div className="text-xs text-spiritual-500 mb-2">
-          Answer API response: {comprehensiveText.length} characters | 
+          Answer API response: {displayText.length} characters | 
           Synthesized answer: {answer.answerText?.length || 0} characters | 
           Citations: {answer.citations?.length || 0} | 
           References: {answer.references?.length || 0}

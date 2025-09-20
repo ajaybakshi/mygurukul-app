@@ -31,7 +31,7 @@ class CollectorService {
       const semantics = await this.analyzeQuery(question, { context, correlationId });
       
       // Step 2: Verse Retrieval
-      const verses = await this.retrieveVerses(semantics, { correlationId, question });
+      const verses = await this.retrieveVerses(semantics, { correlationId });
       
       // Step 3: Verse Clustering
       const clusters = await this.clusterVerses(verses, { correlationId });
@@ -102,12 +102,12 @@ class CollectorService {
    * @param {Object} options - Retrieval options
    * @returns {Promise<Array>} Retrieved verses
    */
-  async retrieveVerses(semantics, { correlationId, question }) {
+  async retrieveVerses(semantics, { correlationId }) {
     try {
       logger.info('Starting verse retrieval', { correlationId });
 
       // Simulate RAG retrieval - in production, this would call Discovery Engine
-      const verses = await this.simulateVerseRetrieval(semantics, question);
+      const verses = await this.simulateVerseRetrieval(semantics);
 
       logger.info('Verse retrieval completed', { 
         correlationId,
@@ -297,9 +297,9 @@ class CollectorService {
     return entities;
   }
 
-  async simulateVerseRetrieval(semantics, question) {
+  async simulateVerseRetrieval(semantics) {
     // Now using REAL Google Discovery Engine - copied exact pattern from main app
-    return await this.retrieveVersesFromDiscoveryEngine(semantics, question);
+    return await this.retrieveVersesFromDiscoveryEngine(semantics);
   }
 
   /**
@@ -308,7 +308,7 @@ class CollectorService {
    * @param {Object} semantics - Semantic analysis result
    * @returns {Promise<Array>} Retrieved verses from real corpus
    */
-  async retrieveVersesFromDiscoveryEngine(semantics, question) {
+  async retrieveVersesFromDiscoveryEngine(semantics) {
     try {
       logger.info('Starting real verse retrieval from Google Discovery Engine');
 
@@ -439,7 +439,7 @@ class CollectorService {
         logger.info('Success response from Google Discovery Engine Answer API');
 
         // Parse the response and extract verses
-        const verses = this.parseDiscoveryEngineResponse(data, semantics, question);
+        const verses = this.parseDiscoveryEngineResponse(data, semantics);
         
         logger.info('Parsed verses from Discovery Engine response', {
           verseCount: verses.length
@@ -534,7 +534,7 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
    * @param {Object} semantics - Original semantic analysis
    * @returns {Array} Parsed verses
    */
-  parseDiscoveryEngineResponse(response, semantics, question) {
+  parseDiscoveryEngineResponse(response, semantics) {
     try {
       const verses = [];
       
@@ -547,7 +547,7 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
                 action.observation.searchResults.forEach((result, resultIndex) => {
                   if (result.snippetInfo) {
                     result.snippetInfo.forEach((snippet, snippetIndex) => {
-                      const verse = this.extractVerseFromSnippet(snippet, result, semantics, question);
+                      const verse = this.extractVerseFromSnippet(snippet, result, semantics);
                       if (verse) {
                         verses.push(verse);
                       }
@@ -562,7 +562,7 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
       
       // If no verses found in steps, try to extract from final answer
       if (verses.length === 0 && response.answer && response.answer.answerText) {
-        const fallbackVerses = this.extractVersesFromAnswerText(response.answer.answerText, semantics, question);
+        const fallbackVerses = this.extractVersesFromAnswerText(response.answer.answerText, semantics);
         verses.push(...fallbackVerses);
       }
       
@@ -586,7 +586,7 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
    * @param {Object} semantics - Original semantic analysis
    * @returns {Object|null} Extracted verse or null
    */
-  extractVerseFromSnippet(snippet, result, semantics, question) {
+  extractVerseFromSnippet(snippet, result, semantics) {
     try {
       const snippetText = snippet.snippet || '';
       
@@ -600,7 +600,7 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
           sanskrit: sanskritMatch ? sanskritMatch[1].trim() : this.extractSanskritFromText(snippetText),
           translation: this.extractTranslationFromText(snippetText),
           interpretation: this.extractInterpretationFromText(snippetText),
-          relevance: this.calculateSanskritRelevance(snippetText, semantics, question),
+          relevance: this.calculateRelevance(snippetText, semantics),
           themes: this.extractThemesFromText(snippetText, semantics)
         };
       }
@@ -618,7 +618,7 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
    * @param {Object} semantics - Original semantic analysis
    * @returns {Array} Extracted verses
    */
-  extractVersesFromAnswerText(answerText, semantics, question) {
+  extractVersesFromAnswerText(answerText, semantics) {
     const verses = [];
     
     // Look for verse patterns in the answer text
@@ -626,7 +626,7 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
     
     if (verseMatches) {
       verseMatches.forEach(match => {
-        const verse = this.parseVerseFromText(match, semantics, question);
+        const verse = this.parseVerseFromText(match, semantics);
         if (verse) {
           verses.push(verse);
         }
@@ -734,191 +734,6 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
     return Math.min(relevance, 1.0);
   }
 
-  // ========== SANSKRIT-FIRST ENHANCEMENT ==========
-
-  // Enhanced Sanskrit-aware relevance scoring
-  calculateSanskritRelevance(text, semantics, query) {
-    let relevance = 0.1; // Start lower to force quality differentiation
-    console.log(`🔍 Sanskrit relevance calculation for query: ${query}`);
-    
-    // 1. DIRECT SANSKRIT TERM ANALYSIS (40% weight)  
-    const sanskritTerms = this.extractSanskritTerms(query);
-    const verseTerms = this.extractSanskritTerms(text);
-    console.log(`📝 Query Sanskrit terms: ${sanskritTerms.join(', ')}`);
-    console.log(`📜 Verse Sanskrit terms: ${verseTerms.join(', ')}`);
-    
-    let sanskritScore = 0;
-    sanskritTerms.forEach(queryTerm => {
-      verseTerms.forEach(verseTerm => {
-        const similarity = this.calculateSanskritSimilarity(queryTerm, verseTerm);
-        if (similarity > 0.8) sanskritScore += 0.15; // Exact/high match
-        else if (similarity > 0.6) sanskritScore += 0.10; // Good match  
-        else if (similarity > 0.4) sanskritScore += 0.05; // Moderate match
-      });
-    });
-    relevance += Math.min(sanskritScore, 0.4); // Cap at 40%
-    
-    // 2. SEMANTIC FIELD ANALYSIS (35% weight)
-    const semanticScore = this.assessSemanticField(text, query);  
-    relevance += semanticScore * 0.35;
-    console.log(`🧠 Semantic field score: ${semanticScore}`);
-    
-    // 3. THEOLOGICAL CONTEXT (15% weight)
-    const contextScore = this.assessTheologicalContext(text, semantics);
-    relevance += contextScore * 0.15;
-    
-    // 4. AUTHENTICITY BONUS (10% weight)
-    const authenticityScore = this.assessScriptureAuthenticity(text);
-    relevance += authenticityScore * 0.10;
-    
-    const finalScore = Math.min(relevance, 1.0);
-    console.log(`✅ Final Sanskrit-aware relevance: ${finalScore}`);
-    return finalScore;
-  }
-
-  // Extract Sanskrit terms with IAST recognition
-  extractSanskritTerms(text) {
-    const terms = [];
-    
-    // Enhanced IAST pattern recognition
-    const iast_patterns = [
-      /[aāiīuūṛṝleoaiauṃḥ]*[kgṅcjñṭḍṇtdnpbmyrlvśṣshḤ]+[aāiīuūṛṝleoaiauṃḥ]*/g,
-      /rudra[sḥ]?[aāiīuūṛṝleoaiauṃḥ]*/gi,
-      /agn[iīe][sḥ]?[aāiīuūṛṝleoaiauṃḥ]*/gi, 
-      /indr[aā][sḥ]?[aāiīuūṛṝleoaiauṃḥ]*/gi,
-      /dharm[aā][sḥ]?[aāiīuūṛṝleoaiauṃḥ]*/gi
-    ];
-    
-    iast_patterns.forEach(pattern => {
-      const matches = text.match(pattern) || [];
-      terms.push(...matches);
-    });
-    
-    // Remove duplicates and filter meaningful terms
-    return [...new Set(terms)].filter(term => term.length > 2);
-  }
-
-  // Calculate Sanskrit term similarity
-  calculateSanskritSimilarity(term1, term2) {
-    if (!term1 || !term2) return 0;
-    
-    // Normalize terms
-    const t1 = term1.toLowerCase().trim();
-    const t2 = term2.toLowerCase().trim();
-    
-    // Exact match
-    if (t1 === t2) return 1.0;
-    
-    // Root-based similarity for Sanskrit
-    const rootMap = {
-      'rudra': ['rudra', 'rudr', 'śiva', 'bhava', 'maheśa', 'īśāna'],
-      'agni': ['agni', 'anala', 'vahni', 'pāvaka', 'jātaveda'],
-      'indra': ['indra', 'śakra', 'vajrin', 'maghavan', 'śatamanyu'],
-      'dharma': ['dharma', 'dharmaḥ', 'ṛta', 'rita', 'satya'],
-      'auṣadhi': ['auṣadhi', 'bheṣaja', 'oṣadhi', 'auṣadhī'],
-      'śakti': ['śakti', 'śaktiḥ', 'tejas', 'bala', 'vīrya']
-    };
-    
-    // Check root associations
-    for (const [root, variants] of Object.entries(rootMap)) {
-      const t1HasRoot = variants.some(v => t1.includes(v));
-      const t2HasRoot = variants.some(v => t2.includes(v));
-      if (t1HasRoot && t2HasRoot) return 0.8;
-    }
-    
-    // Character-level similarity (fallback)
-    const maxLen = Math.max(t1.length, t2.length);
-    const minLen = Math.min(t1.length, t2.length);
-    if (maxLen === 0) return 0;
-    
-    let matches = 0;
-    for (let i = 0; i < minLen; i++) {
-      if (t1[i] === t2[i]) matches++;
-    }
-    
-    return (matches / maxLen) * 0.6; // Moderate similarity for character matching
-  }
-
-  // Assess semantic field relevance
-  assessSemanticField(text, query) {
-    const semanticFields = {
-      'healing_medicine': ['auṣadhi', 'bheṣaja', 'cikitsā', 'healing', 'medicine', 'therapeutic', 'cure', 'remedy'],
-      'cosmic_power': ['śakti', 'tejas', 'mahān', 'vibhūti', 'power', 'energy', 'force', 'might'],
-      'divine_protection': ['rakṣā', 'abhaya', 'śaraṇa', 'protection', 'refuge', 'shelter', 'guard'],
-      'ritual_fire': ['havya', 'yajña', 'homa', 'sacrifice', 'offering', 'oblation', 'ritual'],
-      'storm_elements': ['marut', 'vāyu', 'storm', 'wind', 'tempest', 'thunder', 'lightning'],
-      'cosmic_order': ['ṛta', 'dharma', 'rita', 'order', 'law', 'truth', 'righteousness'],
-      'divine_qualities': ['deva', 'īśvara', 'bhagavān', 'divine', 'god', 'deity', 'supreme']
-    };
-    
-    let fieldScore = 0;
-    let activeFields = 0;
-    
-    Object.entries(semanticFields).forEach(([field, terms]) => {
-      let fieldRelevance = 0;
-      terms.forEach(term => {
-        if (text.toLowerCase().includes(term) || query.toLowerCase().includes(term)) {
-          fieldRelevance = Math.max(fieldRelevance, 0.8);
-        }
-      });
-      if (fieldRelevance > 0) {
-        fieldScore += fieldRelevance;
-        activeFields++;
-      }
-    });
-    
-    return activeFields > 0 ? fieldScore / activeFields : 0;
-  }
-
-  // Assess theological context relevance
-  assessTheologicalContext(text, semantics) {
-    // Check for theological authenticity markers
-    const theologicalMarkers = {
-      'vedic_authority': ['veda', 'ṛṣi', 'mantra', 'sūkta', 'ṛca'],
-      'divine_invocation': ['namaste', 'namaḥ', 'svāhā', 'vaṣaṭ'],
-      'scriptural_context': ['iti', 'ukta', 'āha', 'brūte'],
-      'spiritual_practice': ['yoga', 'dhyāna', 'japa', 'pūjā']
-    };
-    
-    let contextScore = 0.3; // Base theological context
-    
-    Object.values(theologicalMarkers).forEach(markers => {
-      markers.forEach(marker => {
-        if (text.toLowerCase().includes(marker)) {
-          contextScore += 0.1;
-        }
-      });
-    });
-    
-    return Math.min(contextScore, 1.0);
-  }
-
-  // Assess scripture authenticity
-  assessScriptureAuthenticity(text) {
-    // Look for authentic scriptural markers
-    const authenticityMarkers = [
-      /rig veda|ṛg veda|rigveda/i,
-      /atharva veda|atharvaveda/i, 
-      /sama veda|sāma veda/i,
-      /yajur veda/i,
-      /upanishad|upaniṣad/i,
-      /verse \d+/i,
-      /sanskrit transliteration/i
-    ];
-    
-    let authenticityScore = 0.5; // Base authenticity
-    
-    authenticityMarkers.forEach(marker => {
-      if (marker.test(text)) {
-        authenticityScore += 0.1;
-      }
-    });
-    
-    return Math.min(authenticityScore, 1.0);
-  }
-
-  // ========== END SANSKRIT-FIRST ENHANCEMENT ==========
-
   extractThemesFromText(text, semantics) {
     const themes = [];
     
@@ -937,7 +752,7 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
     return themes;
   }
 
-  parseVerseFromText(text, semantics, question) {
+  parseVerseFromText(text, semantics) {
     try {
       const referenceMatch = text.match(/\*\*Verse:\*\*\s*([^\n]+)/);
       const sanskritMatch = text.match(/Sanskrit:\s*([^\n]+)/i);
@@ -949,7 +764,7 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
           sanskrit: sanskritMatch ? sanskritMatch[1].trim() : 'Sanskrit text not found',
           translation: translationMatch ? translationMatch[1].trim() : 'Translation not available',
           interpretation: 'Spiritual interpretation of the verse',
-          relevance: this.calculateSanskritRelevance(text, semantics, question),
+          relevance: this.calculateRelevance(text, semantics),
           themes: this.extractThemesFromText(text, semantics)
         };
       }
