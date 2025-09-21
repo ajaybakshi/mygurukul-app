@@ -5,117 +5,30 @@ const Joi = require('joi');
  */
 
 // Synthesize wisdom request validation
-const synthesizeWisdomSchema = Joi.object({
-  question: Joi.string()
-    .min(10)
-    .max(1000)
-    .required()
-    .messages({
-      'string.min': 'Question must be at least 10 characters long',
-      'string.max': 'Question must not exceed 1000 characters',
-      'any.required': 'Question is required'
-    }),
-
-  sessionId: Joi.string()
-    .uuid()
-    .optional()
-    .messages({
-      'string.uuid': 'Session ID must be a valid UUID'
-    }),
-
-  context: Joi.object({
-    userId: Joi.string().optional(),
-    previousQuestions: Joi.array().items(Joi.string()).max(5).optional(),
-    preferences: Joi.object({
-      tone: Joi.string().valid('formal', 'conversational', 'meditative').default('conversational'),
-      detailLevel: Joi.string().valid('concise', 'balanced', 'comprehensive').default('balanced'),
-      includeSanskrit: Joi.boolean().default(true),
-      maxVerses: Joi.number().integer().min(1).max(10).default(5),
-      narrativeStyle: Joi.string().valid('storytelling', 'teaching', 'dialogue').default('teaching')
-    }).optional()
-  }).optional(),
-
-  verseData: Joi.object({
-    clusters: Joi.array().items(Joi.object({
-      theme: Joi.string().required(),
-      relevance: Joi.number().min(0).max(1).required(),
-      verses: Joi.array().items(Joi.object({
-        reference: Joi.string().required(),
-        sanskrit: Joi.string().optional(),
-        translation: Joi.string().required(),
-        interpretation: Joi.string().optional(),
-        relevance: Joi.number().min(0).max(1).required()
-      })).required()
-    })).required(),
-    metadata: Joi.object({
-      totalClusters: Joi.number().integer().min(0).required(),
-      totalVerses: Joi.number().integer().min(0).required(),
-      processingTime: Joi.string().optional()
-    }).optional()
-  }).required().messages({
-    'any.required': 'Verse data from Sanskrit Collector is required'
-  }),
-
-  options: Joi.object({
-    skipCollectorQuery: Joi.boolean().default(false),
-    forceNewQuery: Joi.boolean().default(false),
-    includeFollowUpSuggestions: Joi.boolean().default(true)
-  }).optional()
+const Verse = Joi.object({
+  id: Joi.string().required(),
+  iast: Joi.string().required(),
+  source: Joi.string().required(),
+  score: Joi.number().optional()
 });
+
+const SynthRequest = Joi.object({
+  question: Joi.string().required(),
+  verseData: Joi.object({
+    verses: Joi.array().items(Verse).min(1).required(),
+    clusters: Joi.array().optional()
+  }).required()
+});
+
+const synthesizeWisdomSchema = SynthRequest;
 
 // Continue conversation request validation
 const continueConversationSchema = Joi.object({
-  question: Joi.string()
-    .min(5)
-    .max(1000)
-    .required()
-    .messages({
-      'string.min': 'Question must be at least 5 characters long',
-      'string.max': 'Question must not exceed 1000 characters',
-      'any.required': 'Question is required'
-    }),
-
-  sessionId: Joi.string()
-    .uuid()
-    .required()
-    .messages({
-      'string.uuid': 'Session ID must be a valid UUID',
-      'any.required': 'Session ID is required for continuing conversation'
-    }),
-
-  context: Joi.object({
-    userId: Joi.string().optional(),
-    preferences: Joi.object({
-      tone: Joi.string().valid('formal', 'conversational', 'meditative').default('conversational'),
-      detailLevel: Joi.string().valid('concise', 'balanced', 'comprehensive').default('balanced'),
-      includeSanskrit: Joi.boolean().default(true),
-      narrativeStyle: Joi.string().valid('storytelling', 'teaching', 'dialogue').default('teaching')
-    }).optional()
-  }).optional(),
-
+  question: Joi.string().required(),
+  sessionId: Joi.string().uuid().required(),
   verseData: Joi.object({
-    clusters: Joi.array().items(Joi.object({
-      theme: Joi.string().required(),
-      relevance: Joi.number().min(0).max(1).required(),
-      verses: Joi.array().items(Joi.object({
-        reference: Joi.string().required(),
-        sanskrit: Joi.string().optional(),
-        translation: Joi.string().required(),
-        interpretation: Joi.string().optional(),
-        relevance: Joi.number().min(0).max(1).required()
-      })).required()
-    })).required(),
-    metadata: Joi.object({
-      totalClusters: Joi.number().integer().min(0).required(),
-      totalVerses: Joi.number().integer().min(0).required(),
-      processingTime: Joi.string().optional()
-    }).optional()
-  }).optional(), // Optional for continue conversation - may reuse existing data
-
-  options: Joi.object({
-    skipCollectorQuery: Joi.boolean().default(false),
-    forceNewQuery: Joi.boolean().default(false),
-    includeFollowUpSuggestions: Joi.boolean().default(true)
+    verses: Joi.array().items(Verse).min(1).optional(),
+    clusters: Joi.array().optional()
   }).optional()
 });
 

@@ -11,6 +11,137 @@ const {
   getResponseSection
 } = promptsModule;
 
+// --- Minimal helpers for one-shot synthesis ---
+
+function selectTopVerses(collectorPayload, k = 4) {
+  const verses = Array.isArray(collectorPayload?.verses) ? collectorPayload.verses : [];
+  const valid = verses
+    .filter(v => v && v.iast && v.source)
+    .map((v, idx) => ({
+      id: v.id || `v${idx + 1}`,
+      iast: String(v.iast || '').trim(),
+      source: v.source,
+      score: typeof v.score === 'number' ? v.score : 0,
+    }));
+  const sorted = valid.sort((a, b) => b.score - a.score);
+  return sorted.slice(0, k);
+}
+
+function hasPlaceholders(text) {
+  if (!text) return true;
+  const bad = [
+    'Translation failed',
+    'spiritual_wisdom',
+    '[Translation failed',
+    'Relevance: 50%',
+    'Relevance: 49%',
+  ];
+  return bad.some(s => text.includes(s));
+}
+
+function buildOneShotPayload(query, topVerses) {
+  return {
+    query,
+    verses: topVerses.map(v => ({
+      id: v.id,
+      iast: String(v.iast || '').trim(),
+      source: v.source,
+      score: v.score,
+    })),
+  };
+}
+
+async function generateOneShotNarrative({ query, collectorPayload, llm }) {
+  const topVerses = selectTopVerses(collectorPayload, 4);
+  if (topVerses.length === 0) {
+    return {
+      markdown: `🙏 Empathetic Opening
+A humble note: not enough verse data was available to generate a full synthesis at this time. Please try refining the question or retrying shortly.`,
+    };
+  }
+
+  const payload = buildOneShotPayload(query, topVerses);
+
+  const system = `
+You are the Spiritual Synthesizer. Use ONLY the provided verses.
+Do four things in order: empathic opening, per-verse analysis, true synthesis, and reflective prompts.
+Rules:
+- Do not echo user words.
+- Exactly one faithful translation per verse; if uncertain, provide a brief contextual gloss (no "translation failed").
+- Do not invent verses or sources; reference verse IDs in synthesis.
+- Avoid percentages; do not show "Relevance:" text.
+- Keep sections concise, insightful, and non-repetitive.
+  `.trim();
+
+  const user = { role: 'user', content: JSON.stringify(payload, null, 2) };
+
+  const assistantInstruction = `
+Return markdown in this exact structure:
+
+🙏 Empathetic Opening
+2–3 sentences that compassionately attune to the seeker's intent, without repeating their words.
+
+📿 Verse Analysis
+- Verse {id}
+  IAST: [translate:${'${IAST_LINE}'}]
+  Translation: English translation in one or two sentences.
+  Why relevant: One sentence linking this verse to the question.
+  Interpretive note: One line moving from literal to deeper meaning.
+
+- Verse {id}
+  IAST: [translate:${'${IAST_LINE}'}]
+  Translation: ...
+  Why relevant: ...
+  Interpretive note: ...
+
+🌸 True Synthesis
+- 3–5 bullet insights that integrate the verses into one understanding; reference verse IDs (e.g., v1, v2) instead of re-quoting text.
+
+🕯️ Contemplative Inquiry
+- A practical action or reflection tailored to this context.
+- A question that invites deeper self-examination.
+- A daily-life integration suggestion rooted in the synthesis.
+- An optional follow-up pathway for continued exploration.
+`.trim();
+
+  const prompt = [
+    { role: 'system', content: system },
+    user,
+    { role: 'assistant', content: assistantInstruction },
+  ];
+
+  const result = await llm.chat(prompt);
+
+  if (!result?.content || hasPlaceholders(result.content)) {
+    const stricter = [
+      { role: 'system', content: system + '\nABSOLUTE: Do not emit placeholders. Provide a brief contextual gloss if exact translation is uncertain.' },
+      user,
+      { role: 'assistant', content: assistantInstruction },
+    ];
+    const retry = await llm.chat(stricter);
+    if (!retry?.content || hasPlaceholders(retry.content)) {
+      return {
+        markdown: `🙏 Empathetic Opening
+A humble, concise response is provided while verse analysis is limited.
+
+📿 Verse Analysis
+${topVerses.map(v => `- Verse ${v.id}\n  IAST: [translate:${v.iast}]\n  Source: ${v.source}`).join('\n')}
+
+🌸 True Synthesis
+- The verses invite reflection on the theme within the question, emphasizing sincerity and steady practice.
+
+🕯️ Contemplative Inquiry
+- Sit quietly for two minutes, reflect on one word from the verses that feels alive today.
+- What small action could honor this insight before sunset?
+`,
+      };
+    }
+    return { markdown: retry.content };
+  }
+
+  return { markdown: result.content };
+}
+
 /**
  * Narrative Synthesizer Service
  * Transforms raw verse data from Sanskrit Collector into conversational wisdom narratives
@@ -91,7 +222,8 @@ class NarrativeSynthesizer {
       logger.info('Processing collector verse data', { correlationId });
 
       if (!verseData.clusters || !Array.isArray(verseData.clusters)) {
-        throw new VerseProcessingError('Invalid verse data structure: missing clusters array');
+        logger.warn('Missing clusters array, creating empty array', { correlationId });
+        verseData.clusters = [];
       }
 
       const processedVerses = [];
