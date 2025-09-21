@@ -108,6 +108,7 @@ Return markdown in this exact structure:
     { role: 'system', content: system },
     user,
     { role: 'assistant', content: assistantInstruction },
+    { role: 'user', content: 'Please generate the wisdom synthesis now.' }
   ];
 
   const result = await llm.chat(prompt);
@@ -117,6 +118,7 @@ Return markdown in this exact structure:
       { role: 'system', content: system + '\nABSOLUTE: Do not emit placeholders. Provide a brief contextual gloss if exact translation is uncertain.' },
       user,
       { role: 'assistant', content: assistantInstruction },
+      { role: 'user', content: 'Please generate the wisdom synthesis now without placeholders.' }
     ];
     const retry = await llm.chat(stricter);
     if (!retry?.content || hasPlaceholders(retry.content)) {
@@ -1078,3 +1080,4 @@ Yes, ${structure.narrativeArc.conclusion}`;
 }
 
 module.exports = NarrativeSynthesizer;
+module.exports.generateOneShotNarrative = generateOneShotNarrative;

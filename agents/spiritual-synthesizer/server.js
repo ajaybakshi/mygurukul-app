@@ -18,24 +18,54 @@ const {
 const logger = require('./logger');
 const { errorHandler, asyncErrorHandler, handleAxiosError } = require('./errorHandler');
 
-// LLM Client Factory
+// LLM Client Factory - Perplexity AI Integration
 function getLLMClient() {
-  const OpenAI = require('openai');
-  const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    timeout: 60000,
-  });
+  const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
+  const PERPLEXITY_API_ENDPOINT = 'https://api.perplexity.ai/chat/completions';
+
+  if (!PERPLEXITY_API_KEY) {
+    throw new Error('PERPLEXITY_API_KEY environment variable is required');
+  }
+
   return {
     chat: async (messages) => {
-      const response = await client.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4',
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 2000,
-      });
-      return {
-        content: response.choices[0]?.message?.content || '',
-      };
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+      try {
+        const response = await fetch(PERPLEXITY_API_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'sonar-medium-online',
+            messages: messages,
+            temperature: 0.7,
+            max_tokens: 2000,
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Perplexity API error: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return {
+          content: data.choices[0]?.message?.content || '',
+        };
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error('Perplexity API request timed out after 60 seconds');
+        }
+        throw error;
+      }
     }
   };
 }
@@ -149,7 +179,7 @@ const verseNormalizationMiddleware = (req, res, next) => {
 app.post(
   '/api/v1/synthesize-wisdom',
   synthesizeWisdomMiddleware,                        // clusters shim (already present)
-  asyncError(async (req, res) => {
+  asyncErrorHandler(async (req, res) => {
     const correlationId = req.correlationId;
     console.log('▶︎ [SynthReq]', correlationId, JSON.stringify(req.body, null, 2));
 
