@@ -106,10 +106,47 @@ const synthesizeWisdomMiddleware = (req, res, next) => {
 };
 
 /**
+ * Verse normalization middleware for synthesize-wisdom endpoint
+ * Ensures verses have required id and iast fields for compatibility
+ */
+const verseNormalizationMiddleware = (req, res, next) => {
+  if (req.body && req.body.verseData && Array.isArray(req.body.verseData.verses)) {
+    let changesMade = false;
+
+    req.body.verseData.verses = req.body.verseData.verses.map((verse, index) => {
+      const normalizedVerse = { ...verse };
+
+      // Set default id if missing
+      if (!normalizedVerse.id) {
+        normalizedVerse.id = `v${index + 1}`;
+        changesMade = true;
+      }
+
+      // Copy verse to iast if iast is missing but verse exists
+      if (!normalizedVerse.iast && normalizedVerse.verse) {
+        normalizedVerse.iast = normalizedVerse.verse;
+        changesMade = true;
+      }
+
+      return normalizedVerse;
+    });
+
+    if (changesMade) {
+      logger.warn('Warning: Defaulted missing id/iast in verses for compatibility', {
+        correlationId: req.correlationId,
+        endpoint: '/api/v1/synthesize-wisdom',
+        verseCount: req.body.verseData.verses.length
+      });
+    }
+  }
+  next();
+};
+
+/**
  * POST /api/v1/synthesize-wisdom
  * Synthesize wisdom narrative from verse data and user question
  */
-app.post('/api/v1/synthesize-wisdom', synthesizeWisdomMiddleware, async (req, res) => {
+app.post('/api/v1/synthesize-wisdom', synthesizeWisdomMiddleware, verseNormalizationMiddleware, async (req, res) => {
   console.log("DEBUG: Endpoint hit with body:", req.body);
   const correlationId = req.correlationId;
 
