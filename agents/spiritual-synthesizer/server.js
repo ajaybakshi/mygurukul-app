@@ -146,38 +146,31 @@ const verseNormalizationMiddleware = (req, res, next) => {
  * POST /api/v1/synthesize-wisdom
  * Synthesize wisdom narrative from verse data and user question
  */
-app.post('/api/v1/synthesize-wisdom', synthesizeWisdomMiddleware, verseNormalizationMiddleware, async (req, res) => {
-  console.log("DEBUG: Endpoint hit with body:", req.body);
-  const correlationId = req.correlationId;
+app.post(
+  '/api/v1/synthesize-wisdom',
+  synthesizeWisdomMiddleware,                        // clusters shim (already present)
+  asyncError(async (req, res) => {
+    const correlationId = req.correlationId;
+    console.log('▶︎ [SynthReq]', correlationId, JSON.stringify(req.body, null, 2));
 
-  logger.info('Synthesize wisdom request received', {
-    correlationId,
-    hasSessionId: !!req.body.sessionId,
-    questionLength: req.body.question?.length || 0
-  });
+    // --- validation ---
+    const { error, value } = validateSynthesizeWisdomRequest(req.body);
+    if (error) {
+      console.warn('⚠️  [SynthValidation]', correlationId, error.details);
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: error.details });
+    }
 
-  // Validate request
-  const { error, value } = validateSynthesizeWisdomRequest(req.body);
-  if (error) {
-    logger.warn('Invalid synthesize wisdom request', {
-      correlationId,
-      error: error.details
-    });
-    return res.status(400).json({
-      error: 'VALIDATION_ERROR',
-      message: 'Invalid request parameters',
-      details: error.details,
-      correlationId
-    });
-  }
+    const { question, verseData } = value;
+    const collectorPayload = { verses: verseData.verses };
+    console.log('▶︎ [SynthLLM-In]', correlationId, { question, verseCount: collectorPayload.verses.length });
 
-  const { question, sessionId, context = {}, verseData, options = {} } = value;
+    const llm = getLLMClient();
+    const { markdown } = await generateOneShotNarrative({ query: question, collectorPayload, llm });
 
-  const collectorPayload = { verses: Array.isArray(verseData?.verses) ? verseData.verses : [] };
-  const llm = getLLMClient();
-  const { markdown } = await generateOneShotNarrative({ query: question, collectorPayload, llm });
-  return res.json({ ok: true, markdown });
-});
+    console.log('✔︎ [SynthLLM-Out]', correlationId, `markdown ${markdown.length} chars`);
+    return res.json({ ok: true, markdown });
+  })
+);
 
 /**
  * POST /api/v1/continue-conversation
@@ -443,6 +436,12 @@ app.use('*', (req, res) => {
     message: `Route ${req.method} ${req.originalUrl} not found`,
     correlationId: req.correlationId
   });
+});
+
+// Generic error handler
+app.use((err, req, res, _next) => {
+  console.error('💥 [SynthUnhandled]', err);
+  res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
 });
 
 // Global error handler
