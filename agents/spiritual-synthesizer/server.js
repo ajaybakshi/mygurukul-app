@@ -91,23 +91,25 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /**
+ * Pre-validation middleware for synthesize-wisdom endpoint
+ * Ensures verseData.clusters compatibility for one-shot integration
+ */
+const synthesizeWisdomMiddleware = (req, res, next) => {
+  if (req.body && req.body.verseData && req.body.verseData.clusters === undefined) {
+    req.body.verseData.clusters = [];
+    logger.warn('Warning: clusters missing - defaulting to empty array for one-shot compatibility', {
+      correlationId: req.correlationId,
+      endpoint: '/api/v1/synthesize-wisdom'
+    });
+  }
+  next();
+};
+
+/**
  * POST /api/v1/synthesize-wisdom
  * Synthesize wisdom narrative from verse data and user question
  */
-app.post('/api/v1/synthesize-wisdom', async (req, res) => {
-  // Pre-validation shim to satisfy any legacy expectations
-  if (req.body && req.body.verseData) {
-    const verses = Array.isArray(req.body.verseData.verses) ? req.body.verseData.verses : [];
-    if (!Array.isArray(req.body.verseData.clusters) || req.body.verseData.clusters.length === 0) {
-      req.body.verseData.clusters = [{
-        clusterId: 'auto-1',
-        theme: 'auto',
-        relevance: 1.0,
-        verses: verses.slice(0, 4)
-      }];
-    }
-  }
-
+app.post('/api/v1/synthesize-wisdom', synthesizeWisdomMiddleware, async (req, res) => {
   console.log("DEBUG: Endpoint hit with body:", req.body);
   const correlationId = req.correlationId;
 
@@ -116,19 +118,6 @@ app.post('/api/v1/synthesize-wisdom', async (req, res) => {
     hasSessionId: !!req.body.sessionId,
     questionLength: req.body.question?.length || 0
   });
-
-  // Pre-validation shim to satisfy any legacy expectations
-  if (req.body && req.body.verseData) {
-    const verses = Array.isArray(req.body.verseData.verses) ? req.body.verseData.verses : [];
-    if (!Array.isArray(req.body.verseData.clusters) || req.body.verseData.clusters.length === 0) {
-      req.body.verseData.clusters = [{
-        clusterId: 'auto-1',
-        theme: 'auto',
-        relevance: 1.0,
-        verses: verses.slice(0, 4)
-      }];
-    }
-  }
 
   // Validate request
   const { error, value } = validateSynthesizeWisdomRequest(req.body);
@@ -147,7 +136,6 @@ app.post('/api/v1/synthesize-wisdom', async (req, res) => {
 
   const { question, sessionId, context = {}, verseData, options = {} } = value;
 
-  const { question, verseData } = req.body || {};
   const collectorPayload = { verses: Array.isArray(verseData?.verses) ? verseData.verses : [] };
   const llm = getLLMClient();
   const { markdown } = await generateOneShotNarrative({ query: question, collectorPayload, llm });
