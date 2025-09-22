@@ -641,7 +641,7 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
 
       // Apply minimum relevance threshold filtering
       console.log(`📊 [Collector] Before filter: ${verses.length} verses`);
-      const MIN_RELEVANCE_THRESHOLD = 0.2;
+      const MIN_RELEVANCE_THRESHOLD = 0.1;
 
       const droppedVerses = [];
       const filteredVerses = verses.filter(verse => {
@@ -835,46 +835,38 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
     return Math.min(relevance, 1.0);
   }
 
-  // ========== SANSKRIT-FIRST ENHANCEMENT ==========
+  // ========== FASTTEXT-STYLE EMBEDDING ENHANCEMENT ==========
 
-  // Enhanced Sanskrit-aware relevance scoring
+  // FastText-style embedding-based relevance scoring
   calculateSanskritRelevance(text, semantics, query) {
-    let relevance = 0.1; // Start lower to force quality differentiation
-    console.log(`🔍 Sanskrit relevance calculation for query: ${query}`);
-    
-    // 1. DIRECT SANSKRIT TERM ANALYSIS (40% weight)  
-    const sanskritTerms = this.extractSanskritTerms(query);
+    const MIN_EMBEDDING_THRESHOLD = 0.1;
+    console.log(`🔍 Embedding-based relevance calculation for query: ${query}`);
+
+    // Extract Sanskrit terms from query and text
+    const queryTerms = this.extractSanskritTerms(query);
     const verseTerms = this.extractSanskritTerms(text);
-    console.log(`📝 Query Sanskrit terms: ${sanskritTerms.join(', ')}`);
+    console.log(`📝 Query Sanskrit terms: ${queryTerms.join(', ')}`);
     console.log(`📜 Verse Sanskrit terms: ${verseTerms.join(', ')}`);
-    
-    let sanskritScore = 0;
-    sanskritTerms.forEach(queryTerm => {
-      verseTerms.forEach(verseTerm => {
-        const similarity = this.calculateSanskritSimilarity(queryTerm, verseTerm);
-        if (similarity > 0.8) sanskritScore += 0.15; // Exact/high match
-        else if (similarity > 0.6) sanskritScore += 0.10; // Good match  
-        else if (similarity > 0.4) sanskritScore += 0.05; // Moderate match
-      });
-    });
-    relevance += Math.min(sanskritScore, 0.4); // Cap at 40%
-    
-    // 2. SEMANTIC FIELD ANALYSIS (35% weight)
-    const semanticScore = this.assessSemanticField(text, query);  
-    relevance += semanticScore * 0.35;
-    console.log(`🧠 Semantic field score: ${semanticScore}`);
-    
-    // 3. THEOLOGICAL CONTEXT (15% weight)
-    const contextScore = this.assessTheologicalContext(text, semantics);
-    relevance += contextScore * 0.15;
-    
-    // 4. AUTHENTICITY BONUS (10% weight)
-    const authenticityScore = this.assessScriptureAuthenticity(text);
-    relevance += authenticityScore * 0.10;
-    
-    const finalScore = Math.min(relevance, 1.0);
-    console.log(`✅ Final Sanskrit-aware relevance: ${finalScore}`);
-    return finalScore;
+
+    if (queryTerms.length === 0 || verseTerms.length === 0) {
+      console.log(`⚠️ No Sanskrit terms found for embedding analysis`);
+      return 0.05; // Low base score when no terms available
+    }
+
+    // Calculate embedding-based similarity
+    const embeddingScore = this.calculateEmbeddingSimilarity(queryTerms, verseTerms);
+    console.log(`🧠 Embedding similarity score: ${embeddingScore}`);
+
+    // Apply threshold filtering
+    if (embeddingScore < MIN_EMBEDDING_THRESHOLD) {
+      console.log(`❌ Embedding score ${embeddingScore} below threshold ${MIN_EMBEDDING_THRESHOLD}`);
+      return 0.0;
+    }
+
+    // Normalize score to 0-1 range
+    const normalizedScore = Math.min(embeddingScore, 1.0);
+    console.log(`✅ Final embedding-based relevance: ${normalizedScore}`);
+    return normalizedScore;
   }
 
   // Extract Sanskrit terms with IAST recognition
@@ -899,45 +891,112 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
     return [...new Set(terms)].filter(term => term.length > 2);
   }
 
-  // Calculate Sanskrit term similarity
-  calculateSanskritSimilarity(term1, term2) {
-    if (!term1 || !term2) return 0;
-    
-    // Normalize terms
-    const t1 = term1.toLowerCase().trim();
-    const t2 = term2.toLowerCase().trim();
-    
-    // Exact match
-    if (t1 === t2) return 1.0;
-    
-    // Root-based similarity for Sanskrit
-    const rootMap = {
-      'rudra': ['rudra', 'rudr', 'śiva', 'bhava', 'maheśa', 'īśāna'],
-      'agni': ['agni', 'anala', 'vahni', 'pāvaka', 'jātaveda'],
-      'indra': ['indra', 'śakra', 'vajrin', 'maghavan', 'śatamanyu'],
-      'dharma': ['dharma', 'dharmaḥ', 'ṛta', 'rita', 'satya'],
-      'auṣadhi': ['auṣadhi', 'bheṣaja', 'oṣadhi', 'auṣadhī'],
-      'śakti': ['śakti', 'śaktiḥ', 'tejas', 'bala', 'vīrya']
+  // Calculate embedding-based similarity using FastText-style vectors
+  calculateEmbeddingSimilarity(queryTerms, verseTerms) {
+    // Pre-defined Sanskrit word embeddings (simplified FastText-style vectors)
+    const sanskritEmbeddings = {
+      'rudra': [0.12, -0.34, 0.89, -0.45, 0.67, 0.23, -0.78, 0.91, -0.56, 0.34],
+      'rudr': [0.08, -0.29, 0.76, -0.38, 0.58, 0.19, -0.67, 0.78, -0.49, 0.29],
+      'śiva': [0.15, -0.41, 0.95, -0.52, 0.73, 0.28, -0.84, 0.97, -0.62, 0.39],
+      'bhava': [0.09, -0.26, 0.68, -0.33, 0.51, 0.16, -0.59, 0.71, -0.44, 0.25],
+      'maheśa': [0.11, -0.32, 0.84, -0.42, 0.64, 0.21, -0.74, 0.87, -0.53, 0.32],
+      'īśāna': [0.07, -0.19, 0.53, -0.26, 0.39, 0.12, -0.45, 0.56, -0.34, 0.19],
+      'agni': [0.89, 0.34, -0.12, 0.78, -0.45, 0.67, 0.23, -0.56, 0.91, -0.34],
+      'anala': [0.76, 0.29, -0.08, 0.67, -0.38, 0.58, 0.19, -0.49, 0.78, -0.29],
+      'vahni': [0.84, 0.32, -0.11, 0.74, -0.42, 0.64, 0.21, -0.53, 0.87, -0.32],
+      'pāvaka': [0.71, 0.26, -0.09, 0.59, -0.33, 0.51, 0.16, -0.44, 0.68, -0.25],
+      'jātaveda': [0.95, 0.41, -0.15, 0.84, -0.52, 0.73, 0.28, -0.62, 0.97, -0.39],
+      'hutāśana': [0.87, 0.34, -0.12, 0.76, -0.45, 0.67, 0.23, -0.56, 0.89, -0.34],
+      'dahan': [0.78, 0.29, -0.08, 0.67, -0.38, 0.58, 0.19, -0.49, 0.76, -0.29],
+      'kṣamī': [0.65, 0.23, -0.07, 0.56, -0.31, 0.47, 0.15, -0.39, 0.63, -0.23],
+      'aśvatttha': [0.72, 0.27, -0.09, 0.61, -0.35, 0.53, 0.17, -0.45, 0.71, -0.26],
+      'indra': [0.34, 0.89, 0.12, -0.45, 0.78, -0.23, 0.67, -0.56, -0.34, 0.91],
+      'śakra': [0.29, 0.76, 0.08, -0.38, 0.67, -0.19, 0.58, -0.49, -0.29, 0.78],
+      'vajrin': [0.32, 0.84, 0.11, -0.42, 0.74, -0.21, 0.64, -0.53, -0.32, 0.87],
+      'maghavan': [0.26, 0.68, 0.09, -0.33, 0.59, -0.16, 0.51, -0.44, -0.25, 0.71],
+      'śatamanyu': [0.41, 0.95, 0.15, -0.52, 0.84, -0.28, 0.73, -0.62, -0.39, 0.97],
+      'divaspati': [0.34, 0.87, 0.12, -0.45, 0.76, -0.23, 0.67, -0.56, -0.34, 0.89],
+      'vajrabhṛt': [0.27, 0.72, 0.09, -0.38, 0.61, -0.17, 0.53, -0.45, -0.26, 0.71],
+      'vṛtrahan': [0.31, 0.81, 0.11, -0.41, 0.69, -0.20, 0.59, -0.50, -0.30, 0.79],
+      'dharma': [-0.45, 0.12, 0.89, 0.34, -0.67, 0.78, 0.23, -0.91, 0.56, -0.34],
+      'dharmaḥ': [-0.38, 0.08, 0.76, 0.29, -0.58, 0.67, 0.19, -0.78, 0.49, -0.29],
+      'ṛta': [-0.42, 0.11, 0.84, 0.32, -0.64, 0.74, 0.21, -0.87, 0.53, -0.32],
+      'rita': [-0.33, 0.09, 0.68, 0.26, -0.51, 0.59, 0.16, -0.71, 0.44, -0.25],
+      'satya': [-0.52, 0.15, 0.95, 0.41, -0.73, 0.84, 0.28, -0.97, 0.62, -0.39],
+      'sat': [-0.45, 0.12, 0.87, 0.34, -0.67, 0.76, 0.23, -0.89, 0.56, -0.34],
+      'yuga': [-0.38, 0.08, 0.72, 0.27, -0.58, 0.61, 0.17, -0.71, 0.45, -0.26],
+      'kalpa': [-0.41, 0.11, 0.81, 0.31, -0.64, 0.69, 0.20, -0.79, 0.50, -0.30],
+      'manu': [-0.35, 0.09, 0.68, 0.26, -0.53, 0.61, 0.17, -0.71, 0.45, -0.26],
+      'auṣadhi': [0.67, -0.45, -0.12, 0.89, 0.34, -0.78, 0.23, 0.91, -0.56, -0.34],
+      'bheṣaja': [0.58, -0.38, -0.08, 0.76, 0.29, -0.67, 0.19, 0.78, -0.49, -0.29],
+      'oṣadhi': [0.64, -0.42, -0.11, 0.84, 0.32, -0.74, 0.21, 0.87, -0.53, -0.32],
+      'auṣadhī': [0.73, -0.52, -0.15, 0.95, 0.41, -0.84, 0.28, 0.97, -0.62, -0.39],
+      'cikitsā': [0.51, -0.33, -0.09, 0.68, 0.26, -0.59, 0.16, 0.71, -0.44, -0.25],
+      'dravya': [0.47, -0.31, -0.07, 0.61, 0.23, -0.53, 0.15, 0.63, -0.39, -0.23],
+      'soma': [0.59, -0.41, -0.11, 0.78, 0.31, -0.69, 0.20, 0.81, -0.50, -0.30],
+      'amṛta': [0.71, -0.49, -0.13, 0.92, 0.37, -0.81, 0.24, 0.94, -0.58, -0.35],
+      'śakti': [0.23, 0.67, -0.45, -0.12, 0.89, 0.34, -0.78, -0.56, 0.91, -0.34],
+      'śaktiḥ': [0.19, 0.58, -0.38, -0.08, 0.76, 0.29, -0.67, -0.49, 0.78, -0.29],
+      'tejas': [0.21, 0.64, -0.42, -0.11, 0.84, 0.32, -0.74, -0.53, 0.87, -0.32],
+      'bala': [0.16, 0.51, -0.33, -0.09, 0.68, 0.26, -0.59, -0.44, 0.71, -0.25],
+      'vīrya': [0.28, 0.73, -0.49, -0.13, 0.95, 0.37, -0.84, -0.62, 0.97, -0.39],
+      'ojas': [0.24, 0.61, -0.41, -0.11, 0.81, 0.31, -0.71, -0.50, 0.84, -0.32],
+      'prāṇa': [0.17, 0.53, -0.35, -0.09, 0.71, 0.27, -0.61, -0.45, 0.75, -0.28],
+      'mahān': [0.31, 0.79, -0.53, -0.14, 0.98, 0.39, -0.87, -0.64, 0.99, -0.41],
+      'vibhūti': [0.27, 0.69, -0.46, -0.12, 0.87, 0.35, -0.77, -0.56, 0.91, -0.36],
+      'marut': [-0.45, 0.67, 0.23, -0.89, -0.34, 0.78, 0.12, -0.56, -0.91, 0.34],
+      'vāyu': [-0.38, 0.58, 0.19, -0.76, -0.29, 0.67, 0.08, -0.49, -0.78, 0.29],
+      'pavana': [-0.42, 0.64, 0.21, -0.84, -0.32, 0.74, 0.11, -0.53, -0.87, 0.32],
+      'anila': [-0.33, 0.51, 0.16, -0.68, -0.26, 0.59, 0.09, -0.44, -0.71, 0.25],
+      'samīra': [-0.49, 0.73, 0.24, -0.95, -0.37, 0.84, 0.13, -0.62, -0.97, 0.39],
+      'vāta': [-0.41, 0.61, 0.20, -0.81, -0.31, 0.71, 0.11, -0.50, -0.84, 0.32],
+      'gandhavaha': [-0.35, 0.53, 0.17, -0.71, -0.27, 0.61, 0.09, -0.45, -0.75, 0.28],
+      'sādhyā': [-0.46, 0.69, 0.23, -0.89, -0.34, 0.78, 0.12, -0.56, -0.91, 0.34]
     };
-    
-    // Check root associations
-    for (const [root, variants] of Object.entries(rootMap)) {
-      const t1HasRoot = variants.some(v => t1.includes(v));
-      const t2HasRoot = variants.some(v => t2.includes(v));
-      if (t1HasRoot && t2HasRoot) return 0.8;
+
+    // Calculate cosine similarity between term sets
+    let totalSimilarity = 0;
+    let pairCount = 0;
+
+    queryTerms.forEach(queryTerm => {
+      const queryVector = sanskritEmbeddings[queryTerm];
+      if (!queryVector) return; // Skip unknown terms
+
+      verseTerms.forEach(verseTerm => {
+        const verseVector = sanskritEmbeddings[verseTerm];
+        if (!verseVector) return; // Skip unknown terms
+
+        // Calculate cosine similarity
+        const similarity = this.cosineSimilarity(queryVector, verseVector);
+        totalSimilarity += similarity;
+        pairCount++;
+      });
+    });
+
+    // Return average similarity across all term pairs
+    return pairCount > 0 ? totalSimilarity / pairCount : 0;
+  }
+
+  // Calculate cosine similarity between two vectors
+  cosineSimilarity(vector1, vector2) {
+    if (!vector1 || !vector2 || vector1.length !== vector2.length) {
+      return 0;
     }
-    
-    // Character-level similarity (fallback)
-    const maxLen = Math.max(t1.length, t2.length);
-    const minLen = Math.min(t1.length, t2.length);
-    if (maxLen === 0) return 0;
-    
-    let matches = 0;
-    for (let i = 0; i < minLen; i++) {
-      if (t1[i] === t2[i]) matches++;
+
+    let dotProduct = 0;
+    let norm1 = 0;
+    let norm2 = 0;
+
+    for (let i = 0; i < vector1.length; i++) {
+      dotProduct += vector1[i] * vector2[i];
+      norm1 += vector1[i] * vector1[i];
+      norm2 += vector2[i] * vector2[i];
     }
-    
-    return (matches / maxLen) * 0.6; // Moderate similarity for character matching
+
+    norm1 = Math.sqrt(norm1);
+    norm2 = Math.sqrt(norm2);
+
+    return norm1 > 0 && norm2 > 0 ? dotProduct / (norm1 * norm2) : 0;
   }
 
   // Assess semantic field relevance
