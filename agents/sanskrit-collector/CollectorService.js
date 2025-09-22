@@ -639,16 +639,37 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
         verses.push(...this.createFallbackVerses(semantics));
       }
 
-      // Log filtering results
-      const finalVerses = verses.slice(0, 5); // Limit to 5 verses
-      if (finalVerses.length < verses.length) {
-        const droppedCount = verses.length - finalVerses.length;
-        console.log('🔍 [Collector] Filtered verses:', {
-          originalCount: verses.length,
-          finalCount: finalVerses.length,
-          droppedCount: droppedCount,
-          dropReason: 'Limited to top 5 verses by relevance score'
+      // Apply minimum relevance threshold filtering
+      console.log(`📊 [Collector] Before filter: ${verses.length} verses`);
+      const MIN_RELEVANCE_THRESHOLD = 0.2;
+
+      const droppedVerses = [];
+      const filteredVerses = verses.filter(verse => {
+        if (verse.relevance < MIN_RELEVANCE_THRESHOLD) {
+          droppedVerses.push({
+            reference: verse.reference,
+            relevance: verse.relevance
+          });
+          return false;
+        }
+        return true;
+      });
+
+      // Log dropped verses
+      if (droppedVerses.length > 0) {
+        console.log(`📉 [Collector] Dropped ${droppedVerses.length} verses below threshold ${MIN_RELEVANCE_THRESHOLD}:`);
+        droppedVerses.forEach((verse, index) => {
+          console.log(`  ${index + 1}. "${verse.reference}" with score ${verse.relevance}`);
         });
+      }
+
+      console.log(`📊 [Collector] After threshold filter: ${filteredVerses.length} verses`);
+
+      // Limit to top 5 verses
+      const finalVerses = filteredVerses.slice(0, 5);
+      if (finalVerses.length < filteredVerses.length) {
+        const droppedCount = filteredVerses.length - finalVerses.length;
+        console.log(`🔍 [Collector] Limited to top 5: dropped ${droppedCount} additional verses`);
       }
 
       return finalVerses;
