@@ -639,37 +639,95 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
         verses.push(...this.createFallbackVerses(semantics));
       }
 
-      // Apply minimum relevance threshold filtering
+      // Apply adaptive relevance threshold filtering
       console.log(`📊 [Collector] Before filter: ${verses.length} verses`);
-      const MIN_RELEVANCE_THRESHOLD = 0.1;
 
-      const droppedVerses = [];
-      const filteredVerses = verses.filter(verse => {
-        if (verse.relevance < MIN_RELEVANCE_THRESHOLD) {
-          droppedVerses.push({
-            reference: verse.reference,
-            relevance: verse.relevance
-          });
-          return false;
-        }
-        return true;
-      });
+      let currentThreshold = 0.1; // Start with 0.1 threshold
+      let filteredVerses = [];
+      let allDroppedVerses = [];
 
-      // Log dropped verses
-      if (droppedVerses.length > 0) {
-        console.log(`📉 [Collector] Dropped ${droppedVerses.length} verses below threshold ${MIN_RELEVANCE_THRESHOLD}:`);
-        droppedVerses.forEach((verse, index) => {
-          console.log(`  ${index + 1}. "${verse.reference}" with score ${verse.relevance}`);
+      // Adaptive filtering: progressively lower threshold if we get too few verses
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const droppedVerses = [];
+        filteredVerses = verses.filter(verse => {
+          if (verse.relevance < currentThreshold) {
+            droppedVerses.push({
+              reference: verse.reference,
+              relevance: verse.relevance,
+              threshold: currentThreshold
+            });
+            return false;
+          }
+          return true;
         });
+
+        allDroppedVerses.push(...droppedVerses);
+
+        console.log(`📊 [Collector] Attempt ${attempt}: threshold ${currentThreshold}, got ${filteredVerses.length} verses`);
+
+        // Log dropped verses for this attempt
+        if (droppedVerses.length > 0) {
+          console.log(`📉 [Collector] Dropped ${droppedVerses.length} verses below threshold ${currentThreshold}:`);
+          droppedVerses.forEach((verse, index) => {
+            console.log(`  ${index + 1}. "${verse.reference}" with score ${verse.relevance}`);
+          });
+        }
+
+        // If we have at least 3 verses, we're good
+        if (filteredVerses.length >= 3) {
+          console.log(`✅ [Collector] Found sufficient verses (${filteredVerses.length}) at threshold ${currentThreshold}`);
+          break;
+        }
+
+        // If this was the last attempt and we still have < 3 verses, use what we have
+        if (attempt === 3) {
+          console.log(`⚠️ [Collector] Using ${filteredVerses.length} verses despite low count (final attempt)`);
+          break;
+        }
+
+        // Lower threshold for next attempt
+        currentThreshold = Math.max(0.01, currentThreshold - 0.03); // Lower by 0.03, minimum 0.01
+        console.log(`🔄 [Collector] Lowering threshold to ${currentThreshold} for next attempt`);
       }
 
-      console.log(`📊 [Collector] After threshold filter: ${filteredVerses.length} verses`);
+      console.log(`📊 [Collector] Final count after adaptive filtering: ${filteredVerses.length} verses`);
 
       // Limit to top 5 verses
       const finalVerses = filteredVerses.slice(0, 5);
       if (finalVerses.length < filteredVerses.length) {
         const droppedCount = filteredVerses.length - finalVerses.length;
         console.log(`🔍 [Collector] Limited to top 5: dropped ${droppedCount} additional verses`);
+      }
+
+      // If no verses found, create fallback using top clusters from original verses
+      if (finalVerses.length === 0) {
+        console.log(`⚠️ [Collector] No verses found, creating cluster-based fallback`);
+
+        // Sort original verses by relevance
+        const sortedVerses = verses.sort((a, b) => b.relevance - a.relevance);
+
+        // Create fallback verses from top clusters
+        const fallbackVerses = [];
+        const usedReferences = new Set();
+
+        for (const verse of sortedVerses) {
+          if (fallbackVerses.length >= 5) break;
+
+          // Avoid duplicates
+          if (usedReferences.has(verse.reference)) continue;
+
+          // Create a fallback verse with relaxed relevance
+          const fallbackVerse = {
+            ...verse,
+            relevance: Math.max(verse.relevance, 0.05) // Ensure minimum relevance
+          };
+
+          fallbackVerses.push(fallbackVerse);
+          usedReferences.add(verse.reference);
+        }
+
+        console.log(`🔄 [Collector] Created ${fallbackVerses.length} fallback verses from top clusters`);
+        return fallbackVerses;
       }
 
       return finalVerses;
