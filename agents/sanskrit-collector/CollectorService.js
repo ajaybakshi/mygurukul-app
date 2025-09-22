@@ -37,12 +37,20 @@ class CollectorService {
       const clusters = await this.clusterVerses(verses, { correlationId });
       
       // Step 4: Response Formatting
-      const formattedResponse = await this.formatResponse(clusters, { 
+      const formattedResponse = await this.formatResponse(clusters, {
         originalQuestion: question,
-        correlationId 
+        correlationId
       });
 
-      logger.info('Query processing pipeline completed', { 
+      // Log final verse count before response
+      console.log('📤 [Collector] Final response ready:', {
+        correlationId,
+        verseCount: verses.length,
+        clusterCount: clusters.length,
+        question: question.substring(0, 50) + '...'
+      });
+
+      logger.info('Query processing pipeline completed', {
         correlationId,
         semanticsCount: Object.keys(semantics).length,
         verseCount: verses.length,
@@ -439,8 +447,22 @@ class CollectorService {
         logger.info('Success response from Google Discovery Engine Answer API');
 
         // Parse the response and extract verses
-        const verses = this.parseDiscoveryEngineResponse(data, semantics, question);
-        
+        const rawVerses = this.parseDiscoveryEngineResponse(data, semantics, question);
+
+        // Log raw parsed verses
+        console.log('📥 [Collector] Raw verses from Discovery Engine:', {
+          count: rawVerses.length,
+          verses: rawVerses.map((v, i) => ({
+            index: i,
+            id: v.id || `v${i + 1}`,
+            source: v.source || v.reference,
+            relevance: v.relevance,
+            preview: (v.sanskrit || v.iast || v.text || '').substring(0, 100) + '...'
+          }))
+        });
+
+        const verses = rawVerses;
+
         logger.info('Parsed verses from Discovery Engine response', {
           verseCount: verses.length
         });
@@ -483,31 +505,77 @@ class CollectorService {
   }
 
   /**
-   * Build query text from semantic analysis
+   * Build query text from semantic analysis with Sanskrit root expansion
    * @param {Object} semantics - Semantic analysis result
    * @returns {string} Query text for Discovery Engine
    */
   buildQueryFromSemantics(semantics) {
     let queryText = '';
-    
-    // Add themes
+
+    // Sanskrit root expansion dictionary for better query enhancement
+    const sanskritRoots = {
+      'rudra': ['rudra', 'raudra', 'marut', 'siva', 'śiva', 'bhava', 'maheśa', 'īśāna', 'śambhu'],
+      'agni': ['agni', 'anala', 'vahni', 'pāvaka', 'jātaveda', 'hutāśana', 'dahan', 'kṣamī', 'aśvatttha'],
+      'indra': ['indra', 'śakra', 'vajrin', 'maghavan', 'śatamanyu', 'divaspati', 'vajrabhṛt', 'vṛtrahan'],
+      'dharma': ['dharma', 'dharmaḥ', 'ṛta', 'rita', 'satya', 'sat', 'yuga', 'kalpa', 'manu'],
+      'auṣadhi': ['auṣadhi', 'bheṣaja', 'oṣadhi', 'auṣadhī', 'cikitsā', 'dravya', 'soma', 'amṛta'],
+      'śakti': ['śakti', 'śaktiḥ', 'tejas', 'bala', 'vīrya', 'ojas', 'prāṇa', 'mahān', 'vibhūti'],
+      'marut': ['marut', 'vāyu', 'pavana', 'anila', 'samīra', 'vāta', 'gandhavaha', 'sādhyā'],
+      'soma': ['soma', 'candra', 'indu', 'amṛta', 'rasa', 'sudhā', 'pīyuṣa', 'dhanvantari'],
+      'vishnu': ['viṣṇu', 'hari', 'nārāyaṇa', 'mādhava', 'govinda', 'keśava', 'vāsudeva', 'janārdana'],
+      'brahma': ['brahma', 'brahman', 'prajāpati', 'hiraṇyagarbha', 'ka', 'virāt', 'īśvara', 'parameṣṭhin'],
+      'sarasvati': ['sarasvatī', 'vāgdevī', 'bhāratī', 'śāradā', 'brāhmī', 'māhī', 'vāṇī', 'gīrvāṇa'],
+      'lakshmi': ['lakṣmī', 'śrī', 'padmā', 'kāmala', 'viṣṇupriyā', 'haripriyā', 'devī', 'īśvarī']
+    };
+
+    // Add themes with Sanskrit root expansion
     if (semantics.themes && semantics.themes.length > 0) {
-      queryText += semantics.themes.join(' ');
+      const expandedThemes = [];
+      semantics.themes.forEach(theme => {
+        expandedThemes.push(theme);
+        // Check if theme matches any Sanskrit root and add synonyms
+        Object.entries(sanskritRoots).forEach(([root, synonyms]) => {
+          if (synonyms.some(syn => theme.toLowerCase().includes(syn.toLowerCase()))) {
+            expandedThemes.push(...synonyms);
+          }
+        });
+      });
+      queryText += expandedThemes.join(' ');
     }
-    
-    // Add concepts
+
+    // Add concepts with Sanskrit root expansion
     if (semantics.concepts && semantics.concepts.length > 0) {
-      queryText += ' ' + semantics.concepts.join(' ');
+      const expandedConcepts = [];
+      semantics.concepts.forEach(concept => {
+        expandedConcepts.push(concept);
+        // Check if concept matches any Sanskrit root and add synonyms
+        Object.entries(sanskritRoots).forEach(([root, synonyms]) => {
+          if (synonyms.some(syn => concept.toLowerCase().includes(syn.toLowerCase()))) {
+            expandedConcepts.push(...synonyms);
+          }
+        });
+      });
+      queryText += ' ' + expandedConcepts.join(' ');
     }
-    
-    // Add entities
+
+    // Add entities with Sanskrit root expansion
     if (semantics.entities && semantics.entities.length > 0) {
-      queryText += ' ' + semantics.entities.join(' ');
+      const expandedEntities = [];
+      semantics.entities.forEach(entity => {
+        expandedEntities.push(entity);
+        // Check if entity matches any Sanskrit root and add synonyms
+        Object.entries(sanskritRoots).forEach(([root, synonyms]) => {
+          if (synonyms.some(syn => entity.toLowerCase().includes(syn.toLowerCase()))) {
+            expandedEntities.push(...synonyms);
+          }
+        });
+      });
+      queryText += ' ' + expandedEntities.join(' ');
     }
-    
+
     // Add metadata enhancement for better retrieval
     queryText += ' characters themes places context sections sanskrit verses';
-    
+
     return queryText.trim();
   }
 
@@ -570,8 +638,20 @@ Return 3-5 most relevant verses with complete Sanskrit text and proper reference
       if (verses.length === 0) {
         verses.push(...this.createFallbackVerses(semantics));
       }
-      
-      return verses.slice(0, 5); // Limit to 5 verses
+
+      // Log filtering results
+      const finalVerses = verses.slice(0, 5); // Limit to 5 verses
+      if (finalVerses.length < verses.length) {
+        const droppedCount = verses.length - finalVerses.length;
+        console.log('🔍 [Collector] Filtered verses:', {
+          originalCount: verses.length,
+          finalCount: finalVerses.length,
+          droppedCount: droppedCount,
+          dropReason: 'Limited to top 5 verses by relevance score'
+        });
+      }
+
+      return finalVerses;
       
     } catch (error) {
       logger.error('Error parsing Discovery Engine response', { error: error.message });
