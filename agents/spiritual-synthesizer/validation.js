@@ -15,7 +15,7 @@ const Verse = Joi.object({
 const SynthRequest = Joi.object({
   question: Joi.string().required(),
   verseData: Joi.object({
-    verses: Joi.array().items(Verse).min(1).required(),
+    verses: Joi.array().items(Verse).min(1).optional().default([]),
     clusters: Joi.array().optional()
   }).required()
 });

@@ -4,7 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { v4: uuidv4 } = require('uuid');
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '../../.env.local') });
 
 const NarrativeSynthesizer = require('./services/NarrativeSynthesizer');
 const { generateOneShotNarrative } = require('./services/NarrativeSynthesizer');
@@ -40,7 +40,7 @@ function getLLMClient() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'sonar-medium-online',
+            model: 'sonar',
             messages: messages,
             temperature: 0.7,
             max_tokens: 2000,
