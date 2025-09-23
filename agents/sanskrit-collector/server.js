@@ -48,7 +48,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Initialize collector service
-const collectorService = new CollectorService();
+const collectorService = require('./CollectorService');  // Imports the existing instance
 
 /**
  * POST /api/v1/collect-verses
