@@ -16,12 +16,13 @@ const {
 function selectTopVerses(collectorPayload, k = 4) {
   const verses = Array.isArray(collectorPayload?.verses) ? collectorPayload.verses : [];
   const valid = verses
-    .filter(v => v && v.iast && v.source)
+    .filter(v => v && v.content && v.content.sanskrit && v.source)
     .map((v, idx) => ({
       id: v.id || `v${idx + 1}`,
-      iast: String(v.iast || '').trim(),
+      iast: String(v.content.sanskrit || '').trim(), // Use sanskrit field as IAST
+      english: String(v.content.translation || '').trim(), // Include the English translation
       source: v.source,
-      score: typeof v.score === 'number' ? v.score : 0,
+      score: typeof v.relevanceScore === 'number' ? v.relevanceScore : 0, // Use relevanceScore
     }));
   const sorted = valid.sort((a, b) => b.score - a.score);
   return sorted.slice(0, k);
@@ -45,6 +46,7 @@ function buildOneShotPayload(query, topVerses) {
     verses: topVerses.map(v => ({
       id: v.id,
       iast: String(v.iast || '').trim(),
+      english: String(v.english || '').trim(),
       source: v.source,
       score: v.score,
     })),
@@ -68,6 +70,7 @@ Do four things in order: empathic opening, per-verse analysis, true synthesis, a
 Rules:
 - Do not echo user words.
 - Exactly one faithful translation per verse; if uncertain, provide a brief contextual gloss (no "translation failed").
+- If an English translation is provided, use it. If it is missing or empty, generate a new faithful translation from the provided IAST (Sanskrit) text.
 - Do not invent verses or sources; reference verse IDs in synthesis.
 - Avoid percentages; do not show "Relevance:" text.
 - Keep sections concise, insightful, and non-repetitive.
@@ -83,14 +86,14 @@ Return markdown in this exact structure:
 
 📿 Verse Analysis
 - Verse {id}
-  IAST: [translate:${'${IAST_LINE}'}]
-  Translation: English translation in one or two sentences.
+  IAST: \${IAST_LINE}
+  Translation: \${ENGLISH_TRANSLATION}
   Why relevant: One sentence linking this verse to the question.
   Interpretive note: One line moving from literal to deeper meaning.
 
 - Verse {id}
-  IAST: [translate:${'${IAST_LINE}'}]
-  Translation: ...
+  IAST: \${IAST_LINE}
+  Translation: \${ENGLISH_TRANSLATION}
   Why relevant: ...
   Interpretive note: ...
 

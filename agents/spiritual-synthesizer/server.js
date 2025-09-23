@@ -191,14 +191,27 @@ app.post(
     }
 
     const { question, verseData } = value;
-    const collectorPayload = { verses: verseData.verses };
+    const verses = req.body.context?.collectorResults?.results?.verses || [];
+    const collectorPayload = { verses };
     console.log('▶︎ [SynthLLM-In]', correlationId, { question, verseCount: collectorPayload.verses.length });
 
     const llm = getLLMClient();
     const { markdown } = await generateOneShotNarrative({ query: question, collectorPayload, llm });
 
     console.log('✔︎ [SynthLLM-Out]', correlationId, `markdown ${markdown.length} chars`);
-    return res.json({ ok: true, markdown });
+    return res.json({
+      success: true,
+      data: {
+        sessionId: req.body.sessionId || uuidv4(),
+        narrative: markdown,
+        citations: [],
+        sources: [],
+        structure: {},
+        metadata: {}
+      },
+      correlationId,
+      timestamp: new Date().toISOString()
+    });
   })
 );
 
