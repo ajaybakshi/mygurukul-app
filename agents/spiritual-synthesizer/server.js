@@ -196,18 +196,14 @@ app.post(
     console.log('▶︎ [SynthLLM-In]', correlationId, { question, verseCount: collectorPayload.verses.length });
 
     const llm = getLLMClient();
-    const { markdown } = await generateOneShotNarrative({ query: question, collectorPayload, llm });
+    const { narrative_guidance } = await generateOneShotNarrative({ query: question, collectorPayload, llm });
 
-    console.log('✔︎ [SynthLLM-Out]', correlationId, `markdown ${markdown.length} chars`);
+    console.log('✔︎ [SynthLLM-Out]', correlationId, `narrative ${narrative_guidance.length} chars`);
     return res.json({
       success: true,
       data: {
         sessionId: req.body.sessionId || uuidv4(),
-        narrative: markdown,
-        citations: [],
-        sources: [],
-        structure: {},
-        metadata: {}
+        narrative: narrative_guidance
       },
       correlationId,
       timestamp: new Date().toISOString()

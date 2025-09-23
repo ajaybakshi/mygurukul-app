@@ -4,8 +4,18 @@ import { DiscoveryEngineResponse } from '@/lib/discoveryEngine'
 import { formatAnswerText, extractCitations, createComprehensiveSpiritualResponse } from '@/lib/discoveryEngine'
 import { BookOpen, ExternalLink, AlertCircle } from 'lucide-react'
 
+interface SpiritualSynthesizerResponse {
+  success: boolean;
+  data: {
+    sessionId: string;
+    narrative: string;
+  };
+  correlationId: string;
+  timestamp: string;
+}
+
 interface AIResponseProps {
-  response: DiscoveryEngineResponse | null;
+  response: DiscoveryEngineResponse | SpiritualSynthesizerResponse | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -48,6 +58,54 @@ export default function AIResponse({ response, isLoading, error }: AIResponsePro
 
   if (!response) {
     return null
+  }
+
+  // Check if this is a spiritual synthesizer response
+  const isSpiritualSynthesizerResponse = (
+    'data' in response &&
+    response.data &&
+    'narrative' in response.data &&
+    typeof response.data.narrative === 'string'
+  );
+
+  if (isSpiritualSynthesizerResponse) {
+    const synthesizerResponse = response as SpiritualSynthesizerResponse;
+    return (
+      <div className="bg-white rounded-xl p-6 card-shadow mt-6">
+        {/* Header */}
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="w-10 h-10 spiritual-gradient rounded-full flex items-center justify-center">
+            <BookOpen className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-spiritual-950">
+              Spiritual Guidance
+            </h3>
+            <p className="text-sm text-spiritual-600">
+              Synthesized wisdom from sacred texts via Spiritual Synthesizer
+            </p>
+          </div>
+        </div>
+
+        {/* Narrative Content */}
+        <div className="mb-6">
+          <div className="text-xs text-spiritual-500 mb-2">
+            Spiritual narrative: {synthesizerResponse.data.narrative.length} characters
+          </div>
+          <div className="text-spiritual-800 leading-relaxed prose prose-spiritual max-w-none whitespace-pre-line">
+            {synthesizerResponse.data.narrative}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-6 pt-4 border-t border-spiritual-100">
+          <p className="text-xs text-spiritual-500 text-center">
+            This response is generated using AI and spiritual wisdom sources.
+            Always use your own discernment and consult with spiritual teachers when needed.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const { answer } = response
