@@ -13,7 +13,8 @@ console.log('Environment variables loaded:', {
   hasApiEndpoint: !!process.env.GOOGLE_DISCOVERY_ENGINE_ENDPOINT
 });
 
-const CollectorService = require('./CollectorService');
+const { CollectorService } = require('./CollectorService');
+const collectorService = new CollectorService();
 const { validateCollectVersesRequest, validateHealthRequest } = require('./validation');
 const logger = require('./logger');
 const { errorHandler } = require('./errorHandler');
@@ -48,7 +49,6 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Initialize collector service
-const collectorService = require('./CollectorService');  // Imports the existing instance
 
 /**
  * POST /api/v1/collect-verses
@@ -88,10 +88,10 @@ app.post('/api/v1/collect-verses', async (req, res, next) => {
       correlationId
     });
 
-    logger.info('Collect verses request completed successfully', { 
+    logger.info('Collect verses request completed successfully', {
       correlationId,
-      verseCount: result.verses?.length || 0,
-      clusterCount: result.clusters?.length || 0
+      verseCount: result.results?.verses?.length || 0,
+      clusterCount: 0
     });
 
     res.json({
