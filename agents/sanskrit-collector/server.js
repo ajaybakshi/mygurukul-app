@@ -14,7 +14,7 @@ console.log('Environment variables loaded:', {
 });
 
 const { CollectorService } = require('./CollectorService');
-const collectorService = new CollectorService();
+let collectorService;
 const { validateCollectVersesRequest, validateHealthRequest } = require('./validation');
 const logger = require('./logger');
 const { errorHandler } = require('./errorHandler');
@@ -178,13 +178,16 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// Start server
-app.listen(PORT, () => {
-  logger.info(`Sanskrit Collector Service started on port ${PORT}`, {
-    port: PORT,
-    environment: process.env.NODE_ENV || 'development',
-    service: 'sanskrit-collector'
+async function initializeApp() {
+  collectorService = await CollectorService.create();
+
+  // Now start the server
+  app.listen(PORT, () => {
+    logger.info(`Collector service running on port ${PORT}`);
   });
-});
+}
+
+// Call the async function to start the application
+initializeApp();
 
 module.exports = app;
