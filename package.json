@@ -1,7 +1,7 @@
 {
   "name": "mygurukul-app",
-  "version": "4.0.0",
-  "description": "MyGurukul v4.0: Advanced AI-powered Sanskrit spiritual guidance platform featuring Python CollectorServiceV2 integration, Gemini + Amarakosha + FAISS processing pipeline, and seamless conversational wisdom synthesis with IAST verse integration",
+  "version": "4.1.0",
+  "description": "MyGurukul v4.1: Advanced AI-powered Sanskrit spiritual guidance platform featuring Python CollectorServiceV2 integration, Gemini + Amarakosha + FAISS processing pipeline, first-person spiritual guidance, enhanced verse formatting with complete IAST and translations, and seamless conversational wisdom synthesis",
   "private": true,
   "scripts": {
     "dev": "next dev",
