@@ -71,6 +71,7 @@ function getLLMClient() {
 }
 
 const app = express();
+app.use(express.json());
 const PORT = process.env.PORT || 3002;
 
 // Initialize services
@@ -180,6 +181,8 @@ app.post(
   '/api/v1/synthesize-wisdom',
   synthesizeWisdomMiddleware,                        // clusters shim (already present)
   asyncErrorHandler(async (req, res) => {
+    console.log('[DEBUG] BODY-PARSER-CHECK: We have a request.');
+    console.log('[DEBUG] Received request body:', JSON.stringify(req.body, null, 2));
     const correlationId = req.correlationId;
     console.log('▶︎ [SynthReq]', correlationId, JSON.stringify(req.body, null, 2));
 
@@ -191,19 +194,35 @@ app.post(
     }
 
     const { question, verseData } = value;
-    const verses = req.body.context?.collectorResults?.results?.verses || [];
-    const collectorPayload = { verses };
-    console.log('▶︎ [SynthLLM-In]', correlationId, { question, verseCount: collectorPayload.verses.length });
+    console.log('[FOUND-ENTRY] Synthesis method called, verseData.clusters:', verseData?.clusters);
+    
+    // Use the correct verse data path from req.body.verseData.results.verses
+    const verses = req.body.verseData?.results?.verses || [];
+    console.log('[FOUND-ENTRY] Verses found:', verses.length);
+    
+    // Use the full synthesis pipeline instead of one-shot
+    const synthesizer = new NarrativeSynthesizer();
+    const result = await synthesizer.synthesizeWisdom(req.body.verseData, question, {}, correlationId);
+    
+    console.log('▶︎ [SynthLLM-In]', correlationId, { question, verseCount: verses.length });
 
-    const llm = getLLMClient();
-    const { narrative_guidance } = await generateOneShotNarrative({ query: question, collectorPayload, llm });
+    console.log('✔︎ [SynthLLM-Out]', correlationId, `narrative ${result.narrative.length} chars`);
 
-    console.log('✔︎ [SynthLLM-Out]', correlationId, `narrative ${narrative_guidance.length} chars`);
+    // Store the initial conversation turn
+    const sessionId = req.body.sessionId || uuidv4();
+    await conversationManager.storeConversationTurn(sessionId, question, {
+      narrative: result.narrative,
+      citations: result.citations || [],
+      sources: result.sources || [],
+      metadata: result.metadata || {},
+      verseData: req.body.verseData
+    });
+
     return res.json({
       success: true,
       data: {
-        sessionId: req.body.sessionId || uuidv4(),
-        narrative: narrative_guidance
+        sessionId: sessionId, // Use the stored sessionId
+        narrative: result.narrative
       },
       correlationId,
       timestamp: new Date().toISOString()
@@ -266,8 +285,12 @@ app.post('/api/v1/continue-conversation', asyncErrorHandler(async (req, res) => 
       });
 
       try {
-        const collectorUrl = process.env.SANSKRIT_COLLECTOR_URL || 'http://localhost:3001';
-        collectorResponse = await axios.post(`${collectorUrl}/api/v1/collect-verses`, collectorQuery, {
+        const collectorUrl = process.env.SANSKRIT_COLLECTOR_URL || 'http://localhost:5001';
+        const pythonCollectorPayload = {
+          question: collectorQuery.question,
+          sessionId: sessionId
+        };
+        collectorResponse = await axios.post(`${collectorUrl}/collect`, pythonCollectorPayload, {
           headers: {
             'x-correlation-id': correlationId,
             'Content-Type': 'application/json'
@@ -275,7 +298,7 @@ app.post('/api/v1/continue-conversation', asyncErrorHandler(async (req, res) => 
           timeout: 30000
         });
 
-        const newVerseData = collectorResponse.data.data;
+        const newVerseData = collectorResponse.data.verseData;
         wisdomResponse = await synthesizer.synthesizeWisdom(newVerseData, question, {
           ...context,
           sessionId
@@ -528,8 +551,9 @@ app.listen(PORT, () => {
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
     service: 'spiritual-synthesizer',
-    collectorUrl: process.env.SANSKRIT_COLLECTOR_URL || 'http://localhost:3001'
+    collectorUrl: process.env.SANSKRIT_COLLECTOR_URL || 'http://localhost:5001'
   });
 });
 
 module.exports = app;
+module.exports.getLLMClient = getLLMClient;
