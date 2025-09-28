@@ -7,7 +7,6 @@ const { v4: uuidv4 } = require('uuid');
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env.local') });
 
 const NarrativeSynthesizer = require('./services/NarrativeSynthesizer');
-const { generateOneShotNarrative } = require('./services/NarrativeSynthesizer');
 const ConversationManager = require('./services/ConversationManager');
 const {
   validateSynthesizeWisdomRequest,
@@ -299,10 +298,8 @@ app.post('/api/v1/continue-conversation', asyncErrorHandler(async (req, res) => 
         });
 
         const newVerseData = collectorResponse.data.verseData;
-        wisdomResponse = await synthesizer.synthesizeWisdom(newVerseData, question, {
-          ...context,
-          sessionId
-        }, correlationId);
+        const synthesizer = new NarrativeSynthesizer();
+        wisdomResponse = await synthesizer.synthesizeWisdom(newVerseData, question, {}, correlationId);
 
       } catch (collectorError) {
         logger.warn('Collector query failed for follow-up, using existing context', {

@@ -11,33 +11,48 @@ const {
   getResponseSection
 } = promptsModule;
 
+// Helper function to extract scripture names from verses
+function extractScriptureNames(verses) {
+  if (!verses || verses.length === 0) return 'the sacred texts';
+
+  const sources = verses.map(verse => {
+    const ref = verse.reference || verse.source || '';
+    // Extract main scripture name (remove chapter/verse numbers and underscores)
+    const mainSource = ref.split(/[\d.-:]/)[0].trim();
+    return mainSource.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }).filter(name => name.length > 0);
+
+  const uniqueSources = [...new Set(sources)];
+  return uniqueSources.length > 0 ? uniqueSources.join(', ') : 'the sacred texts';
+}
+
 // --- Minimal helpers for one-shot synthesis ---
 
 function selectTopVerses(collectorPayload, k = 4) {
-  const verses = Array.isArray(collectorPayload?.verses) ? collectorPayload.verses : [];
+  const verses = Array.isArray(collectorPayload?.verseData?.results?.verses) ? collectorPayload.verseData.results.verses : [];
   const valid = verses
-    .filter(v => v && v.content && v.content.sanskrit && v.source)
+    .filter(v => v && v.content && v.source)
     .map((v, idx) => ({
       id: v.id || `v${idx + 1}`,
-      iast: String(v.content.sanskrit || '').trim(), // Use sanskrit field as IAST
-      english: String(v.content.translation || '').trim(), // Include the English translation
+      iast: String(v.content || '').trim(),
+      english: '',
       source: v.source,
-      score: typeof v.relevanceScore === 'number' ? v.relevanceScore : 0, // Use relevanceScore
+      score: typeof v.relevanceScore === 'number' ? v.relevanceScore : 0
     }));
   const sorted = valid.sort((a, b) => b.score - a.score);
   return sorted.slice(0, k);
 }
 
 function extractOriginalVerses(collectorPayload) {
-  const verses = Array.isArray(collectorPayload?.verses) ? collectorPayload.verses : [];
+  const verses = Array.isArray(collectorPayload?.verseData?.results?.verses) ? collectorPayload.verseData.results.verses : [];
   return verses
-    .filter(v => v && v.content && v.content.sanskrit)
+    .filter(v => v && v.content)
     .map(v => ({
       id: v.id || 'unknown',
       content: {
-        sanskrit: String(v.content.sanskrit || '').trim(),
-        transliteration: String(v.content.transliteration || v.content.sanskrit || '').trim(),
-        translation: String(v.content.translation || '').trim()
+        sanskrit: String(v.content || '').trim(),
+        transliteration: String(v.content || '').trim(),
+        translation: ''
       }
     }));
 }
@@ -81,8 +96,8 @@ async function generateOneShotNarrative({ query, collectorPayload, llm }) {
   const payload = buildOneShotPayload(query, topVerses);
 
   const system = `
-You are the Spiritual Synthesizer. Use ONLY the provided verses.
-Do four things in order: empathic opening, per-verse analysis, true synthesis, and reflective prompts.
+I am the Spiritual Synthesizer. I will use ONLY the provided verses.
+I will do four things in order: empathic opening, per-verse analysis, true synthesis, and reflective prompts.
 Rules:
 - Do not echo user words.
 - Exactly one faithful translation per verse; if uncertain, provide a brief contextual gloss (no "translation failed").
@@ -97,11 +112,17 @@ Rules:
   const assistantInstruction = `
 Return a cohesive narrative in exactly three paragraphs, separated by double newlines (\n\n). Do not use any Markdown formatting, bullet points, emoji prefixes, or section headings.
 
-When referencing verses in the narrative, use placeholder tags in this exact format: [VERSE:{id}]. For example: "...This is hinted at in [VERSE:Vedas_Rg_Veda_Rg_Veda_verse_4197], which speaks of a singular life force..."
+When referencing a verse for the first time in the narrative, use this EXACT inline format:
+{Verse [Source]: [IAST_Sanskrit] - [One_sentence_English_translation]}
+
+For example:
+{Verse Bhagavad Gita 2.47: karmaṇy evādhikāras te mā phaleṣu kadācana - You have the right to perform action, but never to the fruits of that action}
+
+This format should be embedded naturally within the narrative flow, not as separate sections or bullet points.
 
 Paragraph 1 (Introduction): Write a warm, introductory paragraph that compassionately attunes to the seeker's intent without repeating their words, drawing from the compassionate opening style.
 
-Paragraph 2 (Verse Analysis): Weave the verse analysis into a flowing narrative. For each verse, reference it using the [VERSE:{id}] placeholder format and explain its relevance and interpretive meaning, creating a seamless narrative flow that connects the verses thematically.
+Paragraph 2 (Verse Analysis): Weave the verse analysis into a flowing narrative. For each verse, present it using the inline verse format and explain its relevance and interpretive meaning, creating a seamless narrative flow that connects the verses thematically.
 
 Paragraph 3 (Synthesis & Contemplation): Combine key insights from the true synthesis with reflective questions from contemplative inquiry into a single, concluding paragraph that offers both wisdom integration and gentle guidance for further reflection.
 `.trim();
@@ -126,7 +147,7 @@ Paragraph 3 (Synthesis & Contemplation): Combine key insights from the true synt
     });
 
     // Add concluding sentence
-    narrativeContent += '\n\nYou are invited to explore these verses further to deepen your understanding.';
+    narrativeContent += '\n\nI invite you to explore these verses further to deepen your understanding.';
   }
 
   if (!narrativeContent || hasPlaceholders(narrativeContent)) {
@@ -149,12 +170,12 @@ Paragraph 3 (Synthesis & Contemplation): Combine key insights from the true synt
       });
 
       // Add concluding sentence
-      retryNarrativeContent += '\n\nYou are invited to explore these verses further to deepen your understanding.';
+      retryNarrativeContent += '\n\nI invite you to explore these verses further to deepen your understanding.';
     }
 
     if (!retryNarrativeContent || hasPlaceholders(retryNarrativeContent)) {
       return {
-        narrative_guidance: `A humble, concise response is provided while verse analysis is limited. The verses invite reflection on the theme within the question, emphasizing sincerity and steady practice. Sit quietly for two minutes, reflect on one word from the verses that feels alive today, and consider what small action could honor this insight before sunset.`,
+        narrative_guidance: `I offer a humble, concise response while verse analysis is limited. I invite you to reflect on the theme within the question, emphasizing sincerity and steady practice. Sit quietly for two minutes, reflect on one word from the verses that feels alive today, and consider what small action could honor this insight before sunset.`,
         original_verses: originalVerses
       };
     }
@@ -162,6 +183,82 @@ Paragraph 3 (Synthesis & Contemplation): Combine key insights from the true synt
   }
 
   return { narrative_guidance: narrativeContent, original_verses: originalVerses };
+}
+
+async function generateSanskritAnchoredNarrative({ query, collectorPayload, llm }) {
+  const correlationId = `standalone-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  try {
+    logger.info('[TRACE] Entering standalone generateSanskritAnchoredNarrative', { query: query?.substring(0, 50), correlationId });
+
+    // Extract top verses from collector payload
+    const topVerses = selectTopVerses(collectorPayload, 4);
+    if (topVerses.length === 0) {
+      return {
+        narrative_guidance: `A humble note: not enough verse data was available to generate a full synthesis at this time. Please try refining the question or retrying shortly.`,
+        original_verses: []
+      };
+    }
+
+    // Extract scripture names dynamically
+    const scriptureNames = extractScriptureNames(topVerses);
+
+    // Build prompt with verses and question
+    const versesText = topVerses.map((verse, idx) =>
+      `Verse ${idx + 1}: ${verse.sanskrit} (Source: ${verse.reference})`
+    ).join('\n\n');
+
+    const prompt = [
+      {
+        role: 'system',
+        content: `I am your spiritual guide. I will share the verses I have found from the sacred scriptures that have deep relevance to your question. Generate a compassionate, insightful response that synthesizes ancient wisdom with modern understanding. Use the provided Sanskrit verses to answer the user's spiritual question with depth and authenticity.`
+      },
+      {
+        role: 'user',
+        content: `Question: ${query}
+
+Sanskrit Verses:
+${versesText}
+
+Instructions:
+
+Structure your response as follows:
+1. First paragraph: Begin with "The verses I have found from ${scriptureNames} have deep relevance to your question." Then provide a warm, contextual introduction to the topic without repeating the user's words.
+2. Second paragraph: Present each verse with complete IAST and translation, explaining their relevance.
+3. Third paragraph: Synthesize the insights and provide contemplative guidance.
+
+Always provide the complete IAST Sanskrit text for each verse, never truncate with '...'
+
+Always provide full, complete English translations, not brief summaries
+
+When mentioning each verse for the first time, use this exact format: {Verse [Source]: [Complete_IAST] - [Complete_Translation]}
+
+Use first-person language throughout ("I have found", "I observe", etc.)
+
+Embed the verse format naturally within the narrative flow
+
+Write in a warm, accessible tone for sincere spiritual seekers.`
+      }
+    ];
+
+    // Get LLM-generated narrative
+    const result = await llm.chat(prompt);
+    const narrative = result.content || 'The ancient wisdom guides us toward deeper understanding.';
+
+    logger.info('[TRACE] Exiting standalone generateSanskritAnchoredNarrative', { verseCount: topVerses.length, correlationId });
+
+    return {
+      narrative_guidance: narrative,
+      original_verses: extractOriginalVerses(collectorPayload)
+    };
+
+  } catch (error) {
+    logger.error('Standalone generateSanskritAnchoredNarrative failed', {
+      correlationId,
+      error: error.message
+    });
+    throw error;
+  }
 }
 
 /**
@@ -204,6 +301,8 @@ class NarrativeSynthesizer {
 
       // Step 2: Validate scriptural grounding
       await this.validateScripturalGrounding(processedVerses, correlationId);
+      
+      logger.info('[TRACE] LLM input verses', { verseCount: processedVerses.length, correlationId });
 
       // Step 3: Build narrative structure
       const narrativeStructure = await this.buildNarrativeStructure(processedVerses, context, correlationId);
@@ -240,8 +339,60 @@ class NarrativeSynthesizer {
    * @returns {Promise<Array>} Processed verses with enhanced metadata
    */
   async processCollectorData(verseData, question, correlationId) {
+    console.log('[STARTUP-DEBUG] processCollectorData called with clusters:', verseData?.clusters);
     try {
       logger.info('Processing collector verse data', { correlationId });
+
+      // Flat verses fallback (no clusters, no translations; relevance from list order)
+      console.log('[DEBUG] Cluster check:', { 
+        clusters: verseData?.clusters, 
+        isArray: Array.isArray(verseData?.clusters),
+        length: verseData?.clusters?.length
+      });
+      const noClusters = !verseData?.clusters || !Array.isArray(verseData.clusters) || verseData.clusters.length === 0;
+      if (noClusters) {
+        console.log('[FLAT-DEBUG] Input verses:', verseData?.results?.verses?.length || 0);
+        const flat = Array.isArray(verseData?.results?.verses) ? verseData.results.verses : [];
+        console.log('[FLAT-DEBUG] Extracted flat verses:', flat.length);
+
+        const processedVerses = flat.map((v, idx) => {
+          const iast = String(v?.content || '').trim();
+          const reference = String(v?.source || '').trim();
+          // Derive relevance strictly from order: first is highest
+          const derivedRelevance = (flat.length > 0) ? (flat.length - idx) / flat.length : 0;
+
+          return {
+            id: v?.id || `v${idx + 1}`,
+            // Sanskrit only; translation must be produced by LLM later
+            sanskrit: iast,
+            translation: '', // intentionally blank
+            reference,       // preserve for transparency
+            relevance: derivedRelevance,
+            clusterTheme: 'general',
+            processingMetadata: {
+              narrativeRelevance: derivedRelevance,
+              processedAt: new Date().toISOString(),
+              sourceCluster: 'general',
+              origin: 'flat-fallback'
+            },
+            citationStyle: (typeof this?.determineCitationStyle === 'function')
+              ? this.determineCitationStyle({ reference })
+              : 'inline'
+          };
+        });
+
+        // Sort high to low
+        processedVerses.sort((a, b) => {
+          const ar = (typeof a.processingMetadata?.narrativeRelevance === 'number') ? a.processingMetadata.narrativeRelevance : (a.relevance || 0);
+          const br = (typeof b.processingMetadata?.narrativeRelevance === 'number') ? b.processingMetadata.narrativeRelevance : (b.relevance || 0);
+          return br - ar;
+        });
+
+        console.log('[FLAT-DEBUG] Processed verses count:', processedVerses.length);
+        console.log('[FLAT-DEBUG] First processed verse:', processedVerses[0]);
+        logger.info('[TRACE] processCollectorData output', { verseCount: processedVerses.length, correlationId });
+        return processedVerses;
+      }
 
       if (!verseData.clusters || !Array.isArray(verseData.clusters)) {
         logger.warn('Missing clusters array, creating empty array', { correlationId });
@@ -285,6 +436,7 @@ class NarrativeSynthesizer {
         processedCount: processedVerses.length
       });
 
+      logger.info('[TRACE] processCollectorData output', { verseCount: processedVerses.length, correlationId });
       return processedVerses;
 
     } catch (error) {
@@ -309,54 +461,39 @@ class NarrativeSynthesizer {
         verseCount: verses.length
       });
 
-      const validationResults = {
-        hasValidReferences: false,
-        hasTranslations: false,
-        hasAuthenticSources: false,
-        averageRelevance: 0
+      const hasSanskrit = Array.isArray(verses) && verses.some(v => typeof v?.sanskrit === 'string' && v.sanskrit.trim().length > 0);
+      const hasAnyReference = Array.isArray(verses) && verses.some(v => typeof v?.reference === 'string' && v.reference.trim().length > 0);
+
+      const avgRelevance = (Array.isArray(verses) && verses.length > 0)
+        ? verses.reduce((acc, v) => {
+            const r = (typeof v?.relevance === 'number') ? v.relevance
+              : (typeof v?.processingMetadata?.narrativeRelevance === 'number') ? v.processingMetadata.narrativeRelevance
+              : 0;
+            return acc + r;
+          }, 0) / verses.length
+        : 0;
+
+      // Do not fail on missing or non-canonical reference format; warn only
+      if (!hasAnyReference) {
+        logger.warn('[validate] No references detected; continuing with caution', { correlationId });
+      }
+      if (!hasSanskrit) {
+        throw new VerseProcessingError('No Sanskrit content found after normalization', { correlationId });
+      }
+
+      // Since relevance is derived from order, use permissive threshold
+      const minAvg = 0.2;
+      if (avgRelevance < minAvg) {
+        logger.warn('[validate] Low average relevance; proceeding due to flat fallback mode', { correlationId, avgRelevance });
+      }
+
+      const result = {
+        ok: true,
+        diagnostics: { hasSanskrit, hasAnyReference, avgRelevance }
       };
-
-      // Check reference validity
-      const validReferences = verses.filter(verse =>
-        verse.reference &&
-        (verse.reference.includes('Veda') ||
-         verse.reference.includes('Upanishad') ||
-         verse.reference.includes('Bhagavad') ||
-         verse.reference.includes('Mahabharata') ||
-         verse.reference.match(/\d+\.\d+\.\d+/)) // Standard scriptural reference format
-      );
-
-      validationResults.hasValidReferences = validReferences.length > 0;
-
-      // Check Sanskrit content availability (Sanskrit-first architecture)
-      validationResults.hasSanskritContent = verses.some(verse => verse.sanskrit);
-
-      // Check source authenticity
-      validationResults.hasAuthenticSources = verses.some(verse =>
-        verse.reference.includes('Veda') ||
-        verse.reference.includes('Gita') ||
-        verse.reference.includes('Upanishad')
-      );
-
-      // Calculate average relevance
-      validationResults.averageRelevance = verses.reduce((sum, verse) =>
-        sum + (verse.relevance || 0), 0
-      ) / verses.length;
-
-      if (!validationResults.hasValidReferences) {
-        throw new VerseProcessingError('No valid scriptural references found in verse data');
-      }
-
-      if (!validationResults.hasSanskritContent) {
-        throw new VerseProcessingError('Missing Sanskrit content in verses');
-      }
-
-      logger.info('Scriptural grounding validation completed', {
-        correlationId,
-        ...validationResults
-      });
-
-      return true;
+      
+      logger.info('[TRACE] validateScripturalGrounding result', { ok: result.ok, diagnostics: result.diagnostics, correlationId });
+      return result;
 
     } catch (error) {
       logger.error('Scriptural grounding validation failed', {
@@ -376,6 +513,8 @@ class NarrativeSynthesizer {
    */
   async buildNarrativeStructure(verses, context, correlationId) {
     try {
+      logger.info('[TRACE] Entering buildNarrativeStructure', { inputVerseCount: verses.length, correlationId });
+      
       logger.info('Building narrative structure', {
         correlationId,
         verseCount: verses.length
@@ -416,6 +555,7 @@ class NarrativeSynthesizer {
         supportingThemeCount: supportingThemes.length
       });
 
+      logger.info('[TRACE] Exiting buildNarrativeStructure', { outputVerseCount: structure?.verses?.length || 0, correlationId });
       return structure;
 
     } catch (error) {
@@ -458,7 +598,7 @@ class NarrativeSynthesizer {
           break;
         case 'sanskrit-anchored':
         default:
-          narrative = this.generateSanskritAnchoredNarrative(structure, question, context, correlationId);
+          narrative = await this.generateSanskritAnchoredNarrative(structure, question, context, correlationId);
           break;
       }
 
@@ -704,7 +844,15 @@ class NarrativeSynthesizer {
         verses,
         relevance: verses.reduce((sum, v) => sum + v.relevance, 0) / verses.length
       }))
-      .sort((a, b) => b.relevance - a.relevance)
+      .sort((a, b) => {
+        const ar = (typeof a.relevance === 'number') ? a.relevance
+          : (typeof a.processingMetadata?.narrativeRelevance === 'number') ? a.processingMetadata.narrativeRelevance
+          : 0;
+        const br = (typeof b.relevance === 'number') ? b.relevance
+          : (typeof b.processingMetadata?.narrativeRelevance === 'number') ? b.processingMetadata.narrativeRelevance
+          : 0;
+        return br - ar;
+      })
       .slice(0, 2); // Top 2 supporting themes
   }
 
@@ -713,7 +861,7 @@ class NarrativeSynthesizer {
   }
 
   buildDevelopment(primaryTheme, supportingThemes, verses) {
-    let development = `The teachings explore how ${primaryTheme.name}`;
+    let development = `I have found that the teachings explore how ${primaryTheme.name}`;
 
     if (supportingThemes.length > 0) {
       development += ` connects with ${supportingThemes.map(t => t.name).join(' and ')}`;
@@ -722,17 +870,17 @@ class NarrativeSynthesizer {
     development += ', offering deep insights for our spiritual journey.\n\n';
 
     // Add actual Sanskrit verses (Sanskrit-first architecture)
-    const topVerses = verses
-      .filter(v => v.sanskrit) // Sanskrit is primary, translations optional
-      .slice(0, 2); // Show top 2 verses
+    const usable = verses.filter(v => typeof v?.sanskrit === 'string' && v.sanskrit.trim());
+    const topVerses = usable.slice(0, 2); // Show top 2 verses
 
     if (topVerses.length > 0) {
       development += '**Sacred Verses:**\n\n';
       topVerses.forEach((verse, index) => {
         development += `**Verse ${index + 1}:**\n`;
         development += `*Sanskrit:* ${verse.sanskrit}\n`;
-        if (verse.translation && verse.translation !== 'Translation not available') {
-          development += `*Translation:* ${verse.translation}\n`;
+        const translation = (typeof verse?.translation === 'string') ? verse.translation.trim() : '';
+        if (translation && translation !== 'Translation not available') {
+          development += `*Translation:* ${translation}\n`;
         }
         if (verse.interpretation && verse.interpretation !== 'Spiritual interpretation of the verse') {
           development += `*Interpretation:* ${verse.interpretation}\n`;
@@ -745,14 +893,16 @@ class NarrativeSynthesizer {
   }
 
   buildCulmination(primaryTheme, verses) {
-    const keyVerse = verses.find(v => v.clusterTheme === primaryTheme.name);
+    const usable = verses.filter(v => typeof v?.sanskrit === 'string' && v.sanskrit.trim());
+    const keyVerse = usable.find(v => v.clusterTheme === primaryTheme.name) || usable[0];
     if (keyVerse && keyVerse.sanskrit) {
-      let culmination = `The essence of this wisdom is beautifully captured in the Sanskrit verse:
+      let culmination = `I believe the essence of this wisdom is beautifully captured in the Sanskrit verse:
 
 **${keyVerse.sanskrit}**`;
 
-      if (keyVerse.translation && keyVerse.translation !== 'Translation not available') {
-        culmination += `\n\n*Translation:* ${keyVerse.translation}`;
+      const translation = (typeof keyVerse?.translation === 'string') ? keyVerse.translation.trim() : '';
+      if (translation && translation !== 'Translation not available') {
+        culmination += `\n\n*Translation:* ${translation}`;
       }
 
       if (keyVerse.interpretation && keyVerse.interpretation !== 'Spiritual interpretation of the verse') {
@@ -766,19 +916,22 @@ class NarrativeSynthesizer {
   }
 
   buildConclusion(primaryTheme, context) {
-    return `May this wisdom from our tradition illuminate your path and bring peace to your heart.`;
+    return `I hope this wisdom from our tradition illuminates your path and brings peace to your heart.`;
   }
 
   extractPracticalGuidance(verses) {
     // Extract actionable insights from verses with Sanskrit content (Sanskrit-first)
-    return verses
-      .filter(verse => verse.sanskrit) // Sanskrit is primary requirement
-      .map(verse => ({
-        insight: verse.interpretation || 'Contemplate the deeper meaning of this Sanskrit verse',
-        source: verse.reference,
-        sanskrit: verse.sanskrit,
-        translation: verse.translation && verse.translation !== 'Translation not available' ? verse.translation : null
-      }))
+    const usable = verses.filter(v => typeof v?.sanskrit === 'string' && v.sanskrit.trim());
+    return usable
+      .map(verse => {
+        const translation = (typeof verse?.translation === 'string') ? verse.translation.trim() : '';
+        return {
+          insight: verse.interpretation || 'Contemplate the deeper meaning of this Sanskrit verse',
+          source: verse.reference,
+          sanskrit: verse.sanskrit,
+          translation: translation && translation !== 'Translation not available' ? translation : null
+        };
+      })
       .slice(0, 3);
   }
 
@@ -799,41 +952,74 @@ class NarrativeSynthesizer {
    * @param {string} correlationId - Request correlation ID
    * @returns {string} Sanskrit-anchored narrative
    */
-  generateSanskritAnchoredNarrative(structure, question, context, correlationId) {
+  async generateSanskritAnchoredNarrative(structure, question, context, correlationId) {
     try {
+      logger.info('[TRACE] Entering generateSanskritAnchoredNarrative', { inputVerseCount: structure?.primaryTheme?.verses?.length || 0, correlationId });
+      
       logger.info('Generating Sanskrit-anchored narrative', { correlationId });
 
       const { primaryTheme, supportingThemes } = structure;
       const topVerses = primaryTheme.verses
-        .filter(verse => verse.sanskrit)
-        .sort((a, b) => b.relevance - a.relevance)
+        .filter(verse => typeof verse?.sanskrit === 'string' && verse.sanskrit.trim())
+        .sort((a, b) => {
+        const ar = (typeof a.relevance === 'number') ? a.relevance
+          : (typeof a.processingMetadata?.narrativeRelevance === 'number') ? a.processingMetadata.narrativeRelevance
+          : 0;
+        const br = (typeof b.relevance === 'number') ? b.relevance
+          : (typeof b.processingMetadata?.narrativeRelevance === 'number') ? b.processingMetadata.narrativeRelevance
+          : 0;
+        return br - ar;
+      })
         .slice(0, 4); // Get top 3-4 verses for analysis
 
-      // Section 1: Empathic Acknowledgment
-      const empathicSection = this.generateEmpathicAcknowledgment(question, context);
+      // Initialize LLM client
+      const { getLLMClient } = require('../server');
+      const llm = getLLMClient();
 
-      // Section 2: Ancient Wisdom Discovery
-      const wisdomDiscoverySection = this.generateAncientWisdomDiscovery(primaryTheme, supportingThemes);
+      // Build prompt with verses and question
+      const versesText = topVerses.map((verse, idx) => 
+        `Verse ${idx + 1}: ${verse.sanskrit} (Source: ${verse.reference})`
+      ).join('\n\n');
 
-      // Section 3: Ranked Verse Analysis (3-4 verses)
-      const verseAnalysisSection = this.generateRankedVerseAnalysis(topVerses, primaryTheme);
+      // Extract scripture names dynamically
+      const scriptureNames = extractScriptureNames(topVerses);
 
-      // Section 4: True Synthesis
-      const synthesisSection = this.generateTrueSynthesis(topVerses, primaryTheme, question);
+      const prompt = [
+        {
+          role: 'system',
+          content: `I am your spiritual guide. I will share the verses I have found from the sacred scriptures that have deep relevance to your question. Generate a compassionate, insightful response that synthesizes ancient wisdom with modern understanding. Use the provided Sanskrit verses to answer the user's spiritual question with depth and authenticity.`
+        },
+        {
+          role: 'user',
+          content: `Question: ${question}
 
-      // Section 5: Contemplative Inquiry
-      const inquirySection = this.generateContemplativeInquiry(primaryTheme, context);
+Sanskrit Verses:
+${versesText}
 
-      // Compose the complete narrative
-      const narrative = `${empathicSection}
+Instructions:
 
-${wisdomDiscoverySection}
+Structure your response as follows:
+1. First paragraph: Begin with "The verses I have found from ${scriptureNames} have deep relevance to your question." Then provide a warm, contextual introduction to the topic without repeating the user's words.
+2. Second paragraph: Present each verse with complete IAST and translation, explaining their relevance.
+3. Third paragraph: Synthesize the insights and provide contemplative guidance.
 
-${verseAnalysisSection}
+Always provide the complete IAST Sanskrit text for each verse, never truncate with '...'
 
-${synthesisSection}
+Always provide full, complete English translations, not brief summaries
 
-${inquirySection}`;
+When mentioning each verse for the first time, use this exact format: {Verse [Source]: [Complete_IAST] - [Complete_Translation]}
+
+Use first-person language throughout ("I have found", "I observe", etc.)
+
+Embed the verse format naturally within the narrative flow
+
+Write in a warm, accessible tone for sincere spiritual seekers.`
+        }
+      ];
+
+      // Get LLM-generated narrative
+      const result = await llm.chat(prompt);
+      const narrative = result.content || 'The ancient wisdom guides us toward deeper understanding.';
 
       logger.info('Sanskrit-anchored narrative generated', {
         correlationId,
@@ -841,6 +1027,7 @@ ${inquirySection}`;
         sections: 5
       });
 
+      logger.info('[TRACE] Exiting generateSanskritAnchoredNarrative', { outputVerseCount: topVerses.length, correlationId });
       return narrative;
 
     } catch (error) {
@@ -885,7 +1072,7 @@ ${inquirySection}`;
   generateAncientWisdomDiscovery(primaryTheme, supportingThemes) {
     let discovery = `📿 **Ancient Wisdom Discovery**\n\n`;
 
-    discovery += `The ancient Sanskrit tradition offers profound insights into ${primaryTheme.name}`;
+    discovery += `I have found that the ancient Sanskrit tradition offers profound insights into ${primaryTheme.name}`;
 
     if (supportingThemes && supportingThemes.length > 0) {
       discovery += `, beautifully complemented by teachings on ${supportingThemes.map(t => t.name).join(' and ')}. `;
@@ -920,8 +1107,9 @@ ${inquirySection}`;
         analysis += `${rankEmoji} **Verse ${rank}** (Relevance: ${Math.round(verse.relevance * 100)}%)\n`;
         analysis += `*Sanskrit:* ${verse.sanskrit}\n`;
 
-        if (verse.translation && verse.translation !== 'Translation not available') {
-          analysis += `*Translation:* ${verse.translation}\n`;
+        const translation = (typeof verse?.translation === 'string') ? verse.translation.trim() : '';
+        if (translation && translation !== 'Translation not available') {
+          analysis += `*Translation:* ${translation}\n`;
         }
 
         if (verse.interpretation && verse.interpretation !== 'Spiritual interpretation of the verse') {
@@ -947,9 +1135,9 @@ ${inquirySection}`;
     let synthesis = `🌸 **True Synthesis**\n\n`;
 
     if (verses.length === 0) {
-      synthesis += `The true synthesis of wisdom occurs when we recognize that ${primaryTheme.name} is not merely an intellectual concept, but a lived experience of spiritual awareness.`;
+      synthesis += `I believe the true synthesis of wisdom occurs when we recognize that ${primaryTheme.name} is not merely an intellectual concept, but a lived experience of spiritual awareness.`;
     } else {
-      synthesis += `When we weave together these sacred verses, a profound unified understanding emerges:\n\n`;
+      synthesis += `When I weave together these sacred verses, a profound unified understanding emerges:\n\n`;
 
       // Create synthesis from multiple verses
       const themes = [...new Set(verses.map(v => v.clusterTheme))];
@@ -961,7 +1149,7 @@ ${inquirySection}`;
         }
       });
 
-      synthesis += `This synthesis shows us that ${primaryTheme.name} is not a destination to reach, but a path to walk with awareness, compassion, and dedication.`;
+      synthesis += `I believe this synthesis shows us that ${primaryTheme.name} is not a destination to reach, but a path to walk with awareness, compassion, and dedication.`;
     }
 
     return synthesis;
@@ -976,7 +1164,7 @@ ${inquirySection}`;
   generateContemplativeInquiry(primaryTheme, context) {
     let inquiry = `🕯️ **Contemplative Inquiry**\n\n`;
 
-    inquiry += `As you reflect on this wisdom about ${primaryTheme.name}, consider:\n\n`;
+    inquiry += `As you reflect on this wisdom about ${primaryTheme.name} that I have shared, consider:\n\n`;
 
     const inquiryQuestions = [
       `How might these ancient teachings guide your daily choices and actions?`,
@@ -1000,17 +1188,18 @@ ${inquirySection}`;
     // Generate completely Sanskrit-first narrative
     let narrative = `Your question about ${primaryTheme.name} touches on profound wisdom from our spiritual tradition.
 
-The ancient Sanskrit texts reveal deep insights about ${primaryTheme.name} and its significance in our spiritual journey.`;
+I have found that the ancient Sanskrit texts reveal deep insights about ${primaryTheme.name} and its significance in our spiritual journey.`;
 
     // Add Sanskrit verses section - this is the core content
-    const sanskritVerses = primaryTheme.verses.filter(v => v.sanskrit);
+    const sanskritVerses = primaryTheme.verses.filter(v => typeof v?.sanskrit === 'string' && v.sanskrit.trim());
     if (sanskritVerses.length > 0) {
       narrative += `\n\n**Sacred Sanskrit Verses:**\n\n`;
       sanskritVerses.slice(0, 3).forEach((verse, index) => {
         narrative += `**Verse ${index + 1}:**\n`;
         narrative += `*Sanskrit:* ${verse.sanskrit}\n`;
-        if (verse.translation && verse.translation !== 'Translation not available') {
-          narrative += `*Translation:* ${verse.translation}\n`;
+        const translation = (typeof verse?.translation === 'string') ? verse.translation.trim() : '';
+        if (translation && translation !== 'Translation not available') {
+          narrative += `*Translation:* ${translation}\n`;
         }
         if (verse.interpretation && verse.interpretation !== 'Spiritual interpretation of the verse') {
           narrative += `*Interpretation:* ${verse.interpretation}\n`;
@@ -1101,3 +1290,5 @@ Yes, ${structure.narrativeArc.conclusion}`;
 
 module.exports = NarrativeSynthesizer;
 module.exports.generateOneShotNarrative = generateOneShotNarrative;
+module.exports.generateSanskritAnchoredNarrative = generateSanskritAnchoredNarrative;
+module.exports.extractScriptureNames = extractScriptureNames;

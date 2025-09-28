@@ -597,20 +597,38 @@ class ConversationManager {
 
     turns.forEach(turn => {
       if (turn.context.verseData) {
-        turn.context.verseData.forEach(verse => {
-          const verseThemes = [verse.clusterTheme, ...(verse.themes || [])];
-          const isRelevant = questionThemes.some(qTheme =>
-            verseThemes.some(vTheme => this.themesAreRelated(qTheme, vTheme))
-          );
+        const verseData = turn.context.verseData || [];
+        if (Array.isArray(verseData)) {
+          verseData.forEach(verse => {
+            const verseThemes = [verse.clusterTheme, ...(verse.themes || [])];
+            const isRelevant = questionThemes.some(qTheme =>
+              verseThemes.some(vTheme => this.themesAreRelated(qTheme, vTheme))
+            );
 
-          if (isRelevant) {
-            relevantVerses.push({
-              ...verse,
-              sourceTurn: turn.id,
-              relevance: verse.relevance || 0.8
-            });
-          }
-        });
+            if (isRelevant) {
+              relevantVerses.push({
+                ...verse,
+                sourceTurn: turn.id,
+                relevance: verse.relevance || 0.8
+              });
+            }
+          });
+        } else if (verseData.results && Array.isArray(verseData.results.verses)) {
+          verseData.results.verses.forEach(verse => {
+            const verseThemes = [verse.clusterTheme, ...(verse.themes || [])];
+            const isRelevant = questionThemes.some(qTheme =>
+              verseThemes.some(vTheme => this.themesAreRelated(qTheme, vTheme))
+            );
+
+            if (isRelevant) {
+              relevantVerses.push({
+                ...verse,
+                sourceTurn: turn.id,
+                relevance: verse.relevance || 0.8
+              });
+            }
+          });
+        }
       }
     });
 
